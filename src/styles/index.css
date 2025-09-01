@@ -1,0 +1,93 @@
+/* Panel component styles (añade al index.css existente) */
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  width: 300px; /* ancho por card */
+  box-sizing: border-box;
+}
+
+.panel-visual {
+  background: transparent;
+  border-radius: 12px;
+  padding: 8px;
+  display: grid;
+  place-items: center;
+}
+
+.panel-info {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.panel-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.panel-status {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: white;
+}
+
+/* info cards row */
+.panel-cards {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.info-card {
+  flex: 1;
+  background: #111827; /* oscuro */
+  color: #fff;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(2,6,23,0.06);
+}
+
+.info-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.info-label {
+  font-size: 0.75rem;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+
+/* estado OK / ALERT */
+.panel-ok .panel-status { background: #10b981; }    /* verde */
+.panel-alert .panel-status { background: #ef4444; } /* rojo */
+
+/* responsive grid wrapper (usa en la página donde muestres varios) */
+.panels-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
+}
+
