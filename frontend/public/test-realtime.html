@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Realtime Dashboard Endpoint</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        input, button, select {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .status.loading { background: #fff3cd; border: 1px solid #ffeaa7; }
+        .status.success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; border: 1px solid #f5c6cb; }
+        .status.empty { background: #e2e3e5; border: 1px solid #d6d8db; }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .results {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .sensor-card {
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: #f8f9fa;
+        }
+        .sensor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .sensor-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 5px;
+        }
+        .sensor-time {
+            font-size: 11px;
+            color: #6c757d;
+        }
+        .debug-info {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+        .raw-data {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow: auto;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 400px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Test Realtime Dashboard Endpoint</h1>
+            <p>Herramienta para probar específicamente: <code>http://127.0.0.1:8000/api/dashboard/realtime/{facade_id}</code></p>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label>Fachada ID:</label>
+                    <input type="text" id="facadeId" value="1" style="width: 80px;">
+                </div>
+                
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="autoRefresh" checked> Auto-refresh
+                    </label>
+                </div>
+                
+                <div class="control-group">
+                    <label>Intervalo (seg):</label>
+                    <input type="number" id="refreshInterval" value="5" min="1" style="width: 80px;">
+                </div>
+                
+                <button onclick="fetchData()">Actualizar Ahora</button>
+                <button onclick="clearData()">Limpiar</button>
+            </div>
+        </div>
+
+        <div class="debug-info" id="debugInfo">
+            Esperando primera consulta...
+        </div>
+
+        <div class="status" id="statusDiv">
+            <div class="status-dot" style="background: #6c757d;"></div>
+            <span>Listo para consultar</span>
+        </div>
+
+        <div class="results">
+            <h3>Resultados del Endpoint</h3>
+            <div id="results">
+                <p style="color: #6c757d;">Haz clic en "Actualizar Ahora" para probar el endpoint</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        let lastData = [];
+
+        async function fetchData() {
+            const facadeId = document.getElementById('facadeId').value;
+            const url = `http://127.0.0.1:8000/api/dashboard/realtime/${facadeId}`;
+            
+            updateStatus('loading', 'Consultando API...');
+            updateDebugInfo(`🚀 Fetching: ${url}`);
+            
+            try {
+                console.log(`🚀 Fetching: ${url}`);
+                
+                const response = await fetch(url);
+                
+                console.log(`📡 Response status: ${response.status} ${response.statusText}`);
+                console.log(`📡 Response headers:`, Object.fromEntries(response.headers.entries()));
+                
+                updateDebugInfo(`
+📡 Status: ${response.status} ${response.statusText}
+📡 Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}
+⏰ Timestamp: ${new Date().toLocaleString()}
+                `.trim());
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+                }
+                
+                const data = await response.json();
+                
+                console.log(`✅ Response data:`, data);
+                console.log(`📊 Data type:`, typeof data);
+                console.log(`📊 Is array:`, Array.isArray(data));
+                console.log(`📊 Data length:`, Array.isArray(data) ? data.length : 'N/A');
+                
+                lastData = data;
+                displayResults(data);
+                
+                if (Array.isArray(data)) {
+                    if (data.length === 0) {
+                        updateStatus('empty', `Sin datos - Array vacío recibido`);
+                    } else {
+                        updateStatus('success', `${data.length} sensores cargados`);
+                    }
+                } else {
+                    updateStatus('error', 'Respuesta no es un array');
+                }
+                
+            } catch (error) {
+                console.error(`💥 Error:`, error);
+                updateStatus('error', `Error: ${error.message}`);
+                displayError(error.message);
+            }
+        }
+
+        function updateStatus(type, message) {
+            const statusDiv = document.getElementById('statusDiv');
+            const colors = {
+                loading: '#ffc107',
+                success: '#28a745',
+                error: '#dc3545',
+                empty: '#6c757d'
+            };
+            
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = `
+                <div class="status-dot" style="background: ${colors[type]};"></div>
+                <span>${message}</span>
+            `;
+        }
+
+        function updateDebugInfo(info) {
+            document.getElementById('debugInfo').textContent = info;
+        }
+
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (!Array.isArray(data)) {
+                resultsDiv.innerHTML = `
+                    <div style="color: #dc3545;">
+                        <strong>Error:</strong> La respuesta no es un array
+                        <div class="raw-data">${JSON.stringify(data, null, 2)}</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (data.length === 0) {
+                resultsDiv.innerHTML = `
+                    <div style="color: #6c757d;">
+                        <strong>Sin datos:</strong> El endpoint devolvió un array vacío
+                        <div class="raw-data">[]</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Agrupar sensores por tipo
+            const groupedSensors = groupByType(data);
+            
+            let html = '';
+            for (const [type, sensors] of Object.entries(groupedSensors)) {
+                html += `
+                    <h4>${getSensorTypeLabel(type)} (${sensors.length})</h4>
+                    <div class="sensor-grid">
+                `;
+                
+                sensors.forEach(sensor => {
+                    html += `
+                        <div class="sensor-card">
+                            <div class="sensor-header">
+                                <strong>${sensor.sensor_id}</strong>
+                                <span style="font-size: 10px; background: #007bff; color: white; padding: 2px 6px; border-radius: 3px;">
+                                    ${sensor.device_id}
+                                </span>
+                            </div>
+                            <div class="sensor-value">
+                                ${sensor.value} ${sensor.unit}
+                            </div>
+                            <div class="sensor-time">
+                                ${new Date(sensor.last_update).toLocaleString()}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            }
+            
+            html += `
+                <details style="margin-top: 20px;">
+                    <summary style="cursor: pointer; padding: 10px; background: #e9ecef; border-radius: 4px;">
+                        Ver datos en crudo (JSON)
+                    </summary>
+                    <div class="raw-data">${JSON.stringify(data, null, 2)}</div>
+                </details>
+            `;
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        function displayError(error) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `
+                <div style="color: #dc3545;">
+                    <strong>Error:</strong> ${error}
+                </div>
+            `;
+        }
+
+        function groupByType(sensors) {
+            return sensors.reduce((groups, sensor) => {
+                const type = sensor.sensor_type || 'unknown';
+                if (!groups[type]) {
+                    groups[type] = [];
+                }
+                groups[type].push(sensor);
+                return groups;
+            }, {});
+        }
+
+        function getSensorTypeLabel(type) {
+            const labels = {
+                temperature: 'Temperatura',
+                irradiance: 'Irradiancia',
+                wind_speed: 'Velocidad del Viento',
+                pressure: 'Presión',
+                voltage: 'Voltaje',
+                current: 'Corriente',
+                power: 'Potencia',
+                flow: 'Flujo',
+                other: 'Otros',
+                unknown: 'Desconocido'
+            };
+            return labels[type] || type;
+        }
+
+        function clearData() {
+            document.getElementById('results').innerHTML = '<p style="color: #6c757d;">Datos limpiados</p>';
+            updateStatus('empty', 'Datos limpiados');
+            updateDebugInfo('Datos limpiados - Listo para nueva consulta');
+        }
+
+        function setupAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            const interval = document.getElementById('refreshInterval');
+            
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            
+            if (checkbox.checked) {
+                const intervalMs = parseInt(interval.value) * 1000;
+                autoRefreshInterval = setInterval(fetchData, intervalMs);
+                console.log(`Auto-refresh configurado cada ${intervalMs}ms`);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('autoRefresh').addEventListener('change', setupAutoRefresh);
+        document.getElementById('refreshInterval').addEventListener('change', setupAutoRefresh);
+
+        // Inicializar
+        setupAutoRefresh();
+        
+        // Primera carga automática
+        setTimeout(fetchData, 500);
+    </script>
+</body>
+</html>

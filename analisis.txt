@@ -1,0 +1,1823 @@
+🔍 Análisis Estático de Código Python - SolarGrid Monitor
+========================================================
+
+🐍 Ejecutando Ruff - Análisis estático...
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:179:13
+    |
+177 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+178 |
+179 |       query = f"""
+    |  _____________^
+180 | |     SELECT
+181 | |         ts,
+182 | |         ROUND(value::numeric, 2) as value,
+183 | |         unit,
+184 | |         device_id
+185 | |     FROM measurements
+186 | |     WHERE sensor_id = $1 AND facade_id = $2
+187 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+188 | |     ORDER BY ts DESC
+189 | |     LIMIT $3
+190 | |     """
+    | |_______^
+191 |
+192 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:248:13
+    |
+246 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+247 |
+248 |       query = f"""
+    |  _____________^
+249 | |     SELECT
+250 | |         ts,
+251 | |         ROUND(value::numeric, 2) as value,
+252 | |         unit
+253 | |     FROM measurements
+254 | |     WHERE sensor_id = $1 AND facade_id = $2
+255 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+256 | |     ORDER BY ts DESC
+257 | |     LIMIT $3
+258 | |     """
+    | |_______^
+259 |
+260 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:294:13
+    |
+292 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+293 |
+294 |       query = f"""
+    |  _____________^
+295 | |     SELECT
+296 | |         time_bucket(INTERVAL '{interval_map[interval]}', ts) as time_bucket,
+297 | |         ROUND(AVG(value)::numeric, 2) as avg_value,
+298 | |         ROUND(MIN(value)::numeric, 2) as min_value,
+299 | |         ROUND(MAX(value)::numeric, 2) as max_value,
+300 | |         COUNT(*) as data_points
+301 | |     FROM measurements
+302 | |     WHERE sensor_id = $1 AND facade_id = $2
+303 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+304 | |     GROUP BY time_bucket
+305 | |     ORDER BY time_bucket
+306 | |     """
+    | |_______^
+307 |
+308 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:327:13
+    |
+325 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+326 |
+327 |       query = f"""
+    |  _____________^
+328 | |     SELECT
+329 | |         COUNT(*) as total_readings,
+330 | |         ROUND(AVG(value)::numeric, 2) as mean_value,
+331 | |         ROUND(STDDEV(value)::numeric, 2) as std_dev,
+332 | |         ROUND(MIN(value)::numeric, 2) as min_value,
+333 | |         ROUND(MAX(value)::numeric, 2) as max_value,
+334 | |         ROUND(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY value)::numeric, 2) as q25,
+335 | |         ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY value)::numeric, 2) as median,
+336 | |         ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY value)::numeric, 2) as q75,
+337 | |         MIN(ts) as first_reading,
+338 | |         MAX(ts) as last_reading
+339 | |     FROM measurements
+340 | |     WHERE sensor_id = $1 AND facade_id = $2
+341 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+342 | |     """
+    | |_______^
+343 |
+344 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:369:13
+    |
+367 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+368 |
+369 |       query = f"""
+    |  _____________^
+370 | |     WITH stats AS (
+371 | |         SELECT
+372 | |             AVG(value) as mean_val,
+373 | |             STDDEV(value) as std_val
+374 | |         FROM measurements
+375 | |         WHERE sensor_id = $1 AND facade_id = $2
+376 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+377 | |     ),
+378 | |     anomalies AS (
+379 | |         SELECT
+380 | |             ts,
+381 | |             ROUND(value::numeric, 2) as value,
+382 | |             ROUND(ABS(value - stats.mean_val) / stats.std_val::numeric, 2) as z_score
+383 | |         FROM measurements, stats
+384 | |         WHERE sensor_id = $1 AND facade_id = $2
+385 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+386 | |         AND ABS(value - stats.mean_val) > ($3 * stats.std_val)
+387 | |     )
+388 | |     SELECT * FROM anomalies
+389 | |     ORDER BY z_score DESC, ts DESC
+390 | |     LIMIT 50
+391 | |     """
+    | |_______^
+392 |
+393 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:449:17
+    |
+448 |       if facade_id:
+449 |           query = f"""
+    |  _________________^
+450 | |         SELECT
+451 | |             ROUND(AVG(value)::numeric, 2) as average,
+452 | |             COUNT(*) as data_points,
+453 | |             MIN(ts) as period_start,
+454 | |             MAX(ts) as period_end
+455 | |         FROM measurements
+456 | |         WHERE sensor_id = $1 AND facade_id = $2
+457 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+458 | |         """
+    | |___________^
+459 |           params = [variable, facade_id]
+460 |       else:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:461:17
+    |
+459 |           params = [variable, facade_id]
+460 |       else:
+461 |           query = f"""
+    |  _________________^
+462 | |         SELECT
+463 | |             facade_id,
+464 | |             ROUND(AVG(value)::numeric, 2) as average,
+465 | |             COUNT(*) as data_points,
+466 | |             MIN(ts) as period_start,
+467 | |             MAX(ts) as period_end
+468 | |         FROM measurements
+469 | |         WHERE sensor_id = $1
+470 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+471 | |         GROUP BY facade_id
+472 | |         ORDER BY facade_id
+473 | |         """
+    | |___________^
+474 |           params = [variable]
+    |
+
+SIM105 Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+  --> repositories/timescale.py:80:13
+   |
+79 |               # Configurar políticas de retención y compresión (opcional)
+80 | /             try:
+81 | |                 await self.conn.execute("""
+82 | |                     SELECT add_retention_policy('measurements', INTERVAL '1 year', if_not_exists => TRUE);
+83 | |                 """)
+84 | |             except Exception:
+85 | |                 pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+   | |____________________^
+86 |
+87 |               try:
+   |
+help: Replace with `contextlib.suppress(Exception)`
+
+E501 Line too long (106 > 88)
+  --> repositories/timescale.py:82:89
+   |
+80 |             try:
+81 |                 await self.conn.execute("""
+82 |                     SELECT add_retention_policy('measurements', INTERVAL '1 year', if_not_exists => TRUE);
+   |                                                                                         ^^^^^^^^^^^^^^^^^^
+83 |                 """)
+84 |             except Exception:
+   |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+  --> repositories/timescale.py:84:13
+   |
+82 |                       SELECT add_retention_policy('measurements', INTERVAL '1 year', if_not_exists => TRUE);
+83 |                   """)
+84 | /             except Exception:
+85 | |                 pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+   | |____________________^
+86 |
+87 |               try:
+   |
+
+E501 Line too long (95 > 88)
+  --> repositories/timescale.py:85:89
+   |
+83 |                 """)
+84 |             except Exception:
+85 |                 pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+   |                                                                                         ^^^^^^^
+86 |
+87 |             try:
+   |
+
+SIM105 Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+  --> repositories/timescale.py:87:13
+   |
+85 |                   pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+86 |
+87 | /             try:
+88 | |                 await self.conn.execute("""
+89 | |                     SELECT add_compression_policy('measurements', INTERVAL '7 days', if_not_exists => TRUE);
+90 | |                 """)
+91 | |             except Exception:
+92 | |                 pass  # La compresión puede fallar en versiones Community
+   | |____________________^
+93 |
+94 |           except Exception:
+   |
+help: Replace with `contextlib.suppress(Exception)`
+
+E501 Line too long (108 > 88)
+  --> repositories/timescale.py:89:89
+   |
+87 |             try:
+88 |                 await self.conn.execute("""
+89 |                     SELECT add_compression_policy('measurements', INTERVAL '7 days', if_not_exists => TRUE);
+   |                                                                                         ^^^^^^^^^^^^^^^^^^^^
+90 |                 """)
+91 |             except Exception:
+   |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+  --> repositories/timescale.py:91:13
+   |
+89 |                       SELECT add_compression_policy('measurements', INTERVAL '7 days', if_not_exists => TRUE);
+90 |                   """)
+91 | /             except Exception:
+92 | |                 pass  # La compresión puede fallar en versiones Community
+   | |____________________^
+93 |
+94 |           except Exception:
+   |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> repositories/timescale.py:150:25
+    |
+148 |           try:
+149 |               if facade_id:
+150 |                   query = f"""
+    |  _________________________^
+151 | |                 SELECT ts, value, unit, device_id
+152 | |                 FROM measurements
+153 | |                 WHERE sensor_id = $1 AND facade_id = $2
+154 | |                 AND ts >= NOW() - INTERVAL '{hours} hours'
+155 | |                 ORDER BY ts DESC
+156 | |                 """
+    | |___________________^
+157 |                   result = await self.conn.fetch(query, sensor_id, facade_id)
+158 |               else:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> repositories/timescale.py:159:25
+    |
+157 |                   result = await self.conn.fetch(query, sensor_id, facade_id)
+158 |               else:
+159 |                   query = f"""
+    |  _________________________^
+160 | |                 SELECT ts, value, unit, device_id, facade_id
+161 | |                 FROM measurements
+162 | |                 WHERE sensor_id = $1
+163 | |                 AND ts >= NOW() - INTERVAL '{hours} hours'
+164 | |                 ORDER BY ts DESC
+165 | |                 """
+    | |___________________^
+166 |                   result = await self.conn.fetch(query, sensor_id)
+    |
+
+E501 Line too long (110 > 88)
+   --> scripts/naming_validator.py:148:89
+    |
+146 |         """
+147 |         print(
+148 |             f"{Colors.BOLD}{Colors.BLUE} Validando estándares de nombramiento - SolarGrid Monitor{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^
+149 |         )
+150 |         print(f"Proyecto: {self.project_root}\n")
+    |
+
+E501 Line too long (89 > 88)
+   --> scripts/naming_validator.py:157:89
+    |
+156 |         print(
+157 |             f"{Colors.BLUE}  Validando archivos TypeScript/React (Airbnb)...{Colors.END}"
+    |                                                                                         ^
+158 |         )
+159 |         self._validate_typescript_files()
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts/naming_validator.py:208:89
+    |
+206 |                             level=ValidationLevel.ERROR,
+207 |                             rule="PEP8-FILE-NAMING",
+208 |                             suggestion=f"Renombrar a: {self._suggest_snake_case(filename)}",
+    |                                                                                         ^^^^
+209 |                         )
+210 |                     )
+    |
+
+C901 `_validate_typescript_files` is too complex (14 > 10)
+   --> scripts/naming_validator.py:212:9
+    |
+210 |                     )
+211 |
+212 |     def _validate_typescript_files(self) -> None:
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+213 |         """
+214 |         Valida archivos TypeScript/React siguiendo Airbnb Style Guide
+    |
+
+E501 Line too long (93 > 88)
+   --> scripts/naming_validator.py:238:89
+    |
+236 |                             level=ValidationLevel.ERROR,
+237 |                             rule="REACT-COMPONENT-NAMING",
+238 |                             suggestion=f"Renombrar a: {self._suggest_pascal_case(filename)}",
+    |                                                                                         ^^^^^
+239 |                         )
+240 |                     )
+    |
+
+E501 Line too long (90 > 88)
+   --> scripts/naming_validator.py:251:89
+    |
+249 |                         ValidationResult(
+250 |                             file_path=str(ts_file.relative_to(self.project_root)),
+251 |                             message=f"Servicio TypeScript no sigue camelCase: {filename}",
+    |                                                                                         ^^
+252 |                             level=ValidationLevel.ERROR,
+253 |                             rule="TS-SERVICE-NAMING",
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts/naming_validator.py:254:89
+    |
+252 |                             level=ValidationLevel.ERROR,
+253 |                             rule="TS-SERVICE-NAMING",
+254 |                             suggestion=f"Renombrar a: {self._suggest_camel_case(filename)}",
+    |                                                                                         ^^^^
+255 |                         )
+256 |                     )
+    |
+
+E501 Line too long (96 > 88)
+   --> scripts/naming_validator.py:270:89
+    |
+268 |                             level=ValidationLevel.ERROR,
+269 |                             rule="REACT-HOOK-NAMING",
+270 |                             suggestion=f"Renombrar a: use{self._suggest_pascal_case(filename)}",
+    |                                                                                         ^^^^^^^^
+271 |                         )
+272 |                     )
+    |
+
+E501 Line too long (94 > 88)
+   --> scripts/naming_validator.py:283:89
+    |
+281 |                         ValidationResult(
+282 |                             file_path=str(type_file.relative_to(self.project_root)),
+283 |                             message=f"Definición de tipos debe seguir PascalCase: {filename}",
+    |                                                                                         ^^^^^^
+284 |                             level=ValidationLevel.WARNING,
+285 |                             rule="TS-TYPE-NAMING",
+    |
+
+E501 Line too long (122 > 88)
+   --> scripts/naming_validator.py:348:89
+    |
+346 | …                     ValidationResult(
+347 | …                         file_path=str(file_path.relative_to(self.project_root)),
+348 | …                         message=f"Archivo duplicado con typo - eliminar: {filename} (ya existe {corrected_name})",
+    |                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+349 | …                         level=ValidationLevel.ERROR,
+350 | …                         rule="DOMAIN-TYPO-DUPLICATE",
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts/naming_validator.py:351:89
+    |
+349 |                                 level=ValidationLevel.ERROR,
+350 |                                 rule="DOMAIN-TYPO-DUPLICATE",
+351 |                                 suggestion=f"rm {file_path.relative_to(self.project_root)}",
+    |                                                                                         ^^^^
+352 |                             )
+353 |                         )
+    |
+
+E501 Line too long (109 > 88)
+   --> scripts/naming_validator.py:358:89
+    |
+356 | …                     ValidationResult(
+357 | …                         file_path=str(file_path.relative_to(self.project_root)),
+358 | …                         message=f"Typo detectado: '{typo}' debería ser '{correction}' en {filename}",
+    |                                                                                   ^^^^^^^^^^^^^^^^^^^^^
+359 | …                         level=ValidationLevel.ERROR,
+360 | …                         rule="DOMAIN-TYPO",
+    |
+
+E501 Line too long (104 > 88)
+   --> scripts/naming_validator.py:397:89
+    |
+395 |         if not self.results:
+396 |             print(
+397 |                 f"{Colors.GREEN} ¡Todos los archivos siguen los estándares de nombramiento!{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^^^^^
+398 |             )
+399 |             print(
+    |
+
+E501 Line too long (100 > 88)
+   --> scripts/naming_validator.py:400:89
+    |
+398 |             )
+399 |             print(
+400 |                 f"{Colors.GREEN} Proyecto cumple 100% con las convenciones establecidas{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^
+401 |             )
+402 |             return 0
+    |
+
+E501 Line too long (91 > 88)
+   --> scripts/naming_validator.py:416:88
+    |
+414 |                 if result.suggestion:
+415 |                     print(
+416 |                         f"     💡 Sugerencia: {Colors.CYAN}{result.suggestion}{Colors.END}"
+    |                                                                                         ^^^
+417 |                     )
+418 |                 print()
+    |
+
+E501 Line too long (95 > 88)
+   --> scripts/naming_validator.py:422:90
+    |
+420 |         if warnings:
+421 |             print(
+422 |                 f"{Colors.YELLOW}⚠️  Se encontraron {len(warnings)} advertencias:{Colors.END}\n"
+    |                                                                                         ^^^^^^^
+423 |             )
+424 |             for result in warnings:
+    |
+
+E501 Line too long (91 > 88)
+   --> scripts/naming_validator.py:430:88
+    |
+428 |                 if result.suggestion:
+429 |                     print(
+430 |                         f"     💡 Sugerencia: {Colors.CYAN}{result.suggestion}{Colors.END}"
+    |                                                                                         ^^^
+431 |                     )
+432 |                 print()
+    |
+
+E501 Line too long (100 > 88)
+   --> scripts/naming_validator.py:440:88
+    |
+438 |         print(f"  • Advertencias: {len(warnings)}")
+439 |         print(
+440 |             f"\n{Colors.YELLOW}📖 Consulta la documentación: docs/NAMING_CONVENTIONS.md{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^
+441 |         )
+    |
+
+C901 `receive_data` is too complex (14 > 10)
+  --> services/data_acquisition.py:55:15
+   |
+53 |             )
+54 |
+55 |     async def receive_data(self) -> None:
+   |               ^^^^^^^^^^^^
+56 |         """Recibe datos del broker MQTT de forma continua"""
+57 |         while True:
+   |
+
+B023 Function definition does not bind loop variable `messages_queue`
+  --> services/data_acquisition.py:83:25
+   |
+81 |                 def on_message(client, userdata, msg):
+82 |                     with contextlib.suppress(asyncio.QueueFull):
+83 |                         messages_queue.put_nowait(msg)
+   |                         ^^^^^^^^^^^^^^
+84 |
+85 |                 def on_disconnect(client, userdata, rc):
+   |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+   --> services/data_acquisition.py:145:17
+    |
+143 |                       client.loop_stop()
+144 |                       client.disconnect()
+145 | /                 except Exception:
+146 | |                     pass
+    | |________________________^
+147 |
+148 |       async def save_to_timescale(self, raw_data: dict) -> None:
+    |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+   --> tools/init_timescaledb.py:167:5
+    |
+165 |           await conn.close()
+166 |
+167 | /     except Exception:
+168 | |         pass
+    | |____________^
+    |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:41:18
+   |
+40 | def random_temp():
+41 |     return round(random.uniform(20, 35), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:45:18
+   |
+44 | def random_presion():
+45 |     return round(random.uniform(0, 100), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:49:18
+   |
+48 | def random_corriente():
+49 |     return round(random.uniform(-5, 5), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:53:18
+   |
+52 | def random_voltaje():
+53 |     return round(random.uniform(0, 5), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:57:18
+   |
+56 | def random_potencia():
+57 |     return round(random.uniform(0, 100), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:61:18
+   |
+60 | def random_irradiancia():
+61 |     return round(random.uniform(0, 1000), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:65:18
+   |
+64 | def random_velocidad():
+65 |     return round(random.uniform(0, 20), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^
+   |
+
+Found 45 errors.
+
+🔧 Aplicando correcciones automáticas básicas...
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:179:13
+    |
+177 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+178 |
+179 |       query = f"""
+    |  _____________^
+180 | |     SELECT
+181 | |         ts,
+182 | |         ROUND(value::numeric, 2) as value,
+183 | |         unit,
+184 | |         device_id
+185 | |     FROM measurements
+186 | |     WHERE sensor_id = $1 AND facade_id = $2
+187 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+188 | |     ORDER BY ts DESC
+189 | |     LIMIT $3
+190 | |     """
+    | |_______^
+191 |
+192 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:248:13
+    |
+246 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+247 |
+248 |       query = f"""
+    |  _____________^
+249 | |     SELECT
+250 | |         ts,
+251 | |         ROUND(value::numeric, 2) as value,
+252 | |         unit
+253 | |     FROM measurements
+254 | |     WHERE sensor_id = $1 AND facade_id = $2
+255 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+256 | |     ORDER BY ts DESC
+257 | |     LIMIT $3
+258 | |     """
+    | |_______^
+259 |
+260 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:294:13
+    |
+292 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+293 |
+294 |       query = f"""
+    |  _____________^
+295 | |     SELECT
+296 | |         time_bucket(INTERVAL '{interval_map[interval]}', ts) as time_bucket,
+297 | |         ROUND(AVG(value)::numeric, 2) as avg_value,
+298 | |         ROUND(MIN(value)::numeric, 2) as min_value,
+299 | |         ROUND(MAX(value)::numeric, 2) as max_value,
+300 | |         COUNT(*) as data_points
+301 | |     FROM measurements
+302 | |     WHERE sensor_id = $1 AND facade_id = $2
+303 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+304 | |     GROUP BY time_bucket
+305 | |     ORDER BY time_bucket
+306 | |     """
+    | |_______^
+307 |
+308 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:327:13
+    |
+325 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+326 |
+327 |       query = f"""
+    |  _____________^
+328 | |     SELECT
+329 | |         COUNT(*) as total_readings,
+330 | |         ROUND(AVG(value)::numeric, 2) as mean_value,
+331 | |         ROUND(STDDEV(value)::numeric, 2) as std_dev,
+332 | |         ROUND(MIN(value)::numeric, 2) as min_value,
+333 | |         ROUND(MAX(value)::numeric, 2) as max_value,
+334 | |         ROUND(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY value)::numeric, 2) as q25,
+335 | |         ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY value)::numeric, 2) as median,
+336 | |         ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY value)::numeric, 2) as q75,
+337 | |         MIN(ts) as first_reading,
+338 | |         MAX(ts) as last_reading
+339 | |     FROM measurements
+340 | |     WHERE sensor_id = $1 AND facade_id = $2
+341 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+342 | |     """
+    | |_______^
+343 |
+344 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:369:13
+    |
+367 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+368 |
+369 |       query = f"""
+    |  _____________^
+370 | |     WITH stats AS (
+371 | |         SELECT
+372 | |             AVG(value) as mean_val,
+373 | |             STDDEV(value) as std_val
+374 | |         FROM measurements
+375 | |         WHERE sensor_id = $1 AND facade_id = $2
+376 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+377 | |     ),
+378 | |     anomalies AS (
+379 | |         SELECT
+380 | |             ts,
+381 | |             ROUND(value::numeric, 2) as value,
+382 | |             ROUND(ABS(value - stats.mean_val) / stats.std_val::numeric, 2) as z_score
+383 | |         FROM measurements, stats
+384 | |         WHERE sensor_id = $1 AND facade_id = $2
+385 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+386 | |         AND ABS(value - stats.mean_val) > ($3 * stats.std_val)
+387 | |     )
+388 | |     SELECT * FROM anomalies
+389 | |     ORDER BY z_score DESC, ts DESC
+390 | |     LIMIT 50
+391 | |     """
+    | |_______^
+392 |
+393 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:449:17
+    |
+448 |       if facade_id:
+449 |           query = f"""
+    |  _________________^
+450 | |         SELECT
+451 | |             ROUND(AVG(value)::numeric, 2) as average,
+452 | |             COUNT(*) as data_points,
+453 | |             MIN(ts) as period_start,
+454 | |             MAX(ts) as period_end
+455 | |         FROM measurements
+456 | |         WHERE sensor_id = $1 AND facade_id = $2
+457 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+458 | |         """
+    | |___________^
+459 |           params = [variable, facade_id]
+460 |       else:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:461:17
+    |
+459 |           params = [variable, facade_id]
+460 |       else:
+461 |           query = f"""
+    |  _________________^
+462 | |         SELECT
+463 | |             facade_id,
+464 | |             ROUND(AVG(value)::numeric, 2) as average,
+465 | |             COUNT(*) as data_points,
+466 | |             MIN(ts) as period_start,
+467 | |             MAX(ts) as period_end
+468 | |         FROM measurements
+469 | |         WHERE sensor_id = $1
+470 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+471 | |         GROUP BY facade_id
+472 | |         ORDER BY facade_id
+473 | |         """
+    | |___________^
+474 |           params = [variable]
+    |
+
+SIM105 Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+  --> repositories/timescale.py:80:13
+   |
+79 |               # Configurar políticas de retención y compresión (opcional)
+80 | /             try:
+81 | |                 await self.conn.execute("""
+82 | |                     SELECT add_retention_policy('measurements', INTERVAL '1 year', if_not_exists => TRUE);
+83 | |                 """)
+84 | |             except Exception:
+85 | |                 pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+   | |____________________^
+86 |
+87 |               try:
+   |
+help: Replace with `contextlib.suppress(Exception)`
+
+E501 Line too long (106 > 88)
+  --> repositories/timescale.py:82:89
+   |
+80 |             try:
+81 |                 await self.conn.execute("""
+82 |                     SELECT add_retention_policy('measurements', INTERVAL '1 year', if_not_exists => TRUE);
+   |                                                                                         ^^^^^^^^^^^^^^^^^^
+83 |                 """)
+84 |             except Exception:
+   |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+  --> repositories/timescale.py:84:13
+   |
+82 |                       SELECT add_retention_policy('measurements', INTERVAL '1 year', if_not_exists => TRUE);
+83 |                   """)
+84 | /             except Exception:
+85 | |                 pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+   | |____________________^
+86 |
+87 |               try:
+   |
+
+E501 Line too long (95 > 88)
+  --> repositories/timescale.py:85:89
+   |
+83 |                 """)
+84 |             except Exception:
+85 |                 pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+   |                                                                                         ^^^^^^^
+86 |
+87 |             try:
+   |
+
+SIM105 Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+  --> repositories/timescale.py:87:13
+   |
+85 |                   pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+86 |
+87 | /             try:
+88 | |                 await self.conn.execute("""
+89 | |                     SELECT add_compression_policy('measurements', INTERVAL '7 days', if_not_exists => TRUE);
+90 | |                 """)
+91 | |             except Exception:
+92 | |                 pass  # La compresión puede fallar en versiones Community
+   | |____________________^
+93 |
+94 |           except Exception:
+   |
+help: Replace with `contextlib.suppress(Exception)`
+
+E501 Line too long (108 > 88)
+  --> repositories/timescale.py:89:89
+   |
+87 |             try:
+88 |                 await self.conn.execute("""
+89 |                     SELECT add_compression_policy('measurements', INTERVAL '7 days', if_not_exists => TRUE);
+   |                                                                                         ^^^^^^^^^^^^^^^^^^^^
+90 |                 """)
+91 |             except Exception:
+   |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+  --> repositories/timescale.py:91:13
+   |
+89 |                       SELECT add_compression_policy('measurements', INTERVAL '7 days', if_not_exists => TRUE);
+90 |                   """)
+91 | /             except Exception:
+92 | |                 pass  # La compresión puede fallar en versiones Community
+   | |____________________^
+93 |
+94 |           except Exception:
+   |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> repositories/timescale.py:150:25
+    |
+148 |           try:
+149 |               if facade_id:
+150 |                   query = f"""
+    |  _________________________^
+151 | |                 SELECT ts, value, unit, device_id
+152 | |                 FROM measurements
+153 | |                 WHERE sensor_id = $1 AND facade_id = $2
+154 | |                 AND ts >= NOW() - INTERVAL '{hours} hours'
+155 | |                 ORDER BY ts DESC
+156 | |                 """
+    | |___________________^
+157 |                   result = await self.conn.fetch(query, sensor_id, facade_id)
+158 |               else:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> repositories/timescale.py:159:25
+    |
+157 |                   result = await self.conn.fetch(query, sensor_id, facade_id)
+158 |               else:
+159 |                   query = f"""
+    |  _________________________^
+160 | |                 SELECT ts, value, unit, device_id, facade_id
+161 | |                 FROM measurements
+162 | |                 WHERE sensor_id = $1
+163 | |                 AND ts >= NOW() - INTERVAL '{hours} hours'
+164 | |                 ORDER BY ts DESC
+165 | |                 """
+    | |___________________^
+166 |                   result = await self.conn.fetch(query, sensor_id)
+    |
+
+E501 Line too long (110 > 88)
+   --> scripts/naming_validator.py:148:89
+    |
+146 |         """
+147 |         print(
+148 |             f"{Colors.BOLD}{Colors.BLUE} Validando estándares de nombramiento - SolarGrid Monitor{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^
+149 |         )
+150 |         print(f"Proyecto: {self.project_root}\n")
+    |
+
+E501 Line too long (89 > 88)
+   --> scripts/naming_validator.py:157:89
+    |
+156 |         print(
+157 |             f"{Colors.BLUE}  Validando archivos TypeScript/React (Airbnb)...{Colors.END}"
+    |                                                                                         ^
+158 |         )
+159 |         self._validate_typescript_files()
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts/naming_validator.py:208:89
+    |
+206 |                             level=ValidationLevel.ERROR,
+207 |                             rule="PEP8-FILE-NAMING",
+208 |                             suggestion=f"Renombrar a: {self._suggest_snake_case(filename)}",
+    |                                                                                         ^^^^
+209 |                         )
+210 |                     )
+    |
+
+C901 `_validate_typescript_files` is too complex (14 > 10)
+   --> scripts/naming_validator.py:212:9
+    |
+210 |                     )
+211 |
+212 |     def _validate_typescript_files(self) -> None:
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+213 |         """
+214 |         Valida archivos TypeScript/React siguiendo Airbnb Style Guide
+    |
+
+E501 Line too long (93 > 88)
+   --> scripts/naming_validator.py:238:89
+    |
+236 |                             level=ValidationLevel.ERROR,
+237 |                             rule="REACT-COMPONENT-NAMING",
+238 |                             suggestion=f"Renombrar a: {self._suggest_pascal_case(filename)}",
+    |                                                                                         ^^^^^
+239 |                         )
+240 |                     )
+    |
+
+E501 Line too long (90 > 88)
+   --> scripts/naming_validator.py:251:89
+    |
+249 |                         ValidationResult(
+250 |                             file_path=str(ts_file.relative_to(self.project_root)),
+251 |                             message=f"Servicio TypeScript no sigue camelCase: {filename}",
+    |                                                                                         ^^
+252 |                             level=ValidationLevel.ERROR,
+253 |                             rule="TS-SERVICE-NAMING",
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts/naming_validator.py:254:89
+    |
+252 |                             level=ValidationLevel.ERROR,
+253 |                             rule="TS-SERVICE-NAMING",
+254 |                             suggestion=f"Renombrar a: {self._suggest_camel_case(filename)}",
+    |                                                                                         ^^^^
+255 |                         )
+256 |                     )
+    |
+
+E501 Line too long (96 > 88)
+   --> scripts/naming_validator.py:270:89
+    |
+268 |                             level=ValidationLevel.ERROR,
+269 |                             rule="REACT-HOOK-NAMING",
+270 |                             suggestion=f"Renombrar a: use{self._suggest_pascal_case(filename)}",
+    |                                                                                         ^^^^^^^^
+271 |                         )
+272 |                     )
+    |
+
+E501 Line too long (94 > 88)
+   --> scripts/naming_validator.py:283:89
+    |
+281 |                         ValidationResult(
+282 |                             file_path=str(type_file.relative_to(self.project_root)),
+283 |                             message=f"Definición de tipos debe seguir PascalCase: {filename}",
+    |                                                                                         ^^^^^^
+284 |                             level=ValidationLevel.WARNING,
+285 |                             rule="TS-TYPE-NAMING",
+    |
+
+E501 Line too long (122 > 88)
+   --> scripts/naming_validator.py:348:89
+    |
+346 | …                     ValidationResult(
+347 | …                         file_path=str(file_path.relative_to(self.project_root)),
+348 | …                         message=f"Archivo duplicado con typo - eliminar: {filename} (ya existe {corrected_name})",
+    |                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+349 | …                         level=ValidationLevel.ERROR,
+350 | …                         rule="DOMAIN-TYPO-DUPLICATE",
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts/naming_validator.py:351:89
+    |
+349 |                                 level=ValidationLevel.ERROR,
+350 |                                 rule="DOMAIN-TYPO-DUPLICATE",
+351 |                                 suggestion=f"rm {file_path.relative_to(self.project_root)}",
+    |                                                                                         ^^^^
+352 |                             )
+353 |                         )
+    |
+
+E501 Line too long (109 > 88)
+   --> scripts/naming_validator.py:358:89
+    |
+356 | …                     ValidationResult(
+357 | …                         file_path=str(file_path.relative_to(self.project_root)),
+358 | …                         message=f"Typo detectado: '{typo}' debería ser '{correction}' en {filename}",
+    |                                                                                   ^^^^^^^^^^^^^^^^^^^^^
+359 | …                         level=ValidationLevel.ERROR,
+360 | …                         rule="DOMAIN-TYPO",
+    |
+
+E501 Line too long (104 > 88)
+   --> scripts/naming_validator.py:397:89
+    |
+395 |         if not self.results:
+396 |             print(
+397 |                 f"{Colors.GREEN} ¡Todos los archivos siguen los estándares de nombramiento!{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^^^^^
+398 |             )
+399 |             print(
+    |
+
+E501 Line too long (100 > 88)
+   --> scripts/naming_validator.py:400:89
+    |
+398 |             )
+399 |             print(
+400 |                 f"{Colors.GREEN} Proyecto cumple 100% con las convenciones establecidas{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^
+401 |             )
+402 |             return 0
+    |
+
+E501 Line too long (91 > 88)
+   --> scripts/naming_validator.py:416:88
+    |
+414 |                 if result.suggestion:
+415 |                     print(
+416 |                         f"     💡 Sugerencia: {Colors.CYAN}{result.suggestion}{Colors.END}"
+    |                                                                                         ^^^
+417 |                     )
+418 |                 print()
+    |
+
+E501 Line too long (95 > 88)
+   --> scripts/naming_validator.py:422:90
+    |
+420 |         if warnings:
+421 |             print(
+422 |                 f"{Colors.YELLOW}⚠️  Se encontraron {len(warnings)} advertencias:{Colors.END}\n"
+    |                                                                                         ^^^^^^^
+423 |             )
+424 |             for result in warnings:
+    |
+
+E501 Line too long (91 > 88)
+   --> scripts/naming_validator.py:430:88
+    |
+428 |                 if result.suggestion:
+429 |                     print(
+430 |                         f"     💡 Sugerencia: {Colors.CYAN}{result.suggestion}{Colors.END}"
+    |                                                                                         ^^^
+431 |                     )
+432 |                 print()
+    |
+
+E501 Line too long (100 > 88)
+   --> scripts/naming_validator.py:440:88
+    |
+438 |         print(f"  • Advertencias: {len(warnings)}")
+439 |         print(
+440 |             f"\n{Colors.YELLOW}📖 Consulta la documentación: docs/NAMING_CONVENTIONS.md{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^
+441 |         )
+    |
+
+C901 `receive_data` is too complex (14 > 10)
+  --> services/data_acquisition.py:55:15
+   |
+53 |             )
+54 |
+55 |     async def receive_data(self) -> None:
+   |               ^^^^^^^^^^^^
+56 |         """Recibe datos del broker MQTT de forma continua"""
+57 |         while True:
+   |
+
+B023 Function definition does not bind loop variable `messages_queue`
+  --> services/data_acquisition.py:83:25
+   |
+81 |                 def on_message(client, userdata, msg):
+82 |                     with contextlib.suppress(asyncio.QueueFull):
+83 |                         messages_queue.put_nowait(msg)
+   |                         ^^^^^^^^^^^^^^
+84 |
+85 |                 def on_disconnect(client, userdata, rc):
+   |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+   --> services/data_acquisition.py:145:17
+    |
+143 |                       client.loop_stop()
+144 |                       client.disconnect()
+145 | /                 except Exception:
+146 | |                     pass
+    | |________________________^
+147 |
+148 |       async def save_to_timescale(self, raw_data: dict) -> None:
+    |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+   --> tools/init_timescaledb.py:167:5
+    |
+165 |           await conn.close()
+166 |
+167 | /     except Exception:
+168 | |         pass
+    | |____________^
+    |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:41:18
+   |
+40 | def random_temp():
+41 |     return round(random.uniform(20, 35), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:45:18
+   |
+44 | def random_presion():
+45 |     return round(random.uniform(0, 100), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:49:18
+   |
+48 | def random_corriente():
+49 |     return round(random.uniform(-5, 5), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:53:18
+   |
+52 | def random_voltaje():
+53 |     return round(random.uniform(0, 5), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:57:18
+   |
+56 | def random_potencia():
+57 |     return round(random.uniform(0, 100), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:61:18
+   |
+60 | def random_irradiancia():
+61 |     return round(random.uniform(0, 1000), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:65:18
+   |
+64 | def random_velocidad():
+65 |     return round(random.uniform(0, 20), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^
+   |
+
+Found 45 errors.
+
+🚀 Aplicando correcciones automáticas avanzadas...
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:179:13
+    |
+177 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+178 |
+179 |       query = f"""
+    |  _____________^
+180 | |     SELECT
+181 | |         ts,
+182 | |         ROUND(value::numeric, 2) as value,
+183 | |         unit,
+184 | |         device_id
+185 | |     FROM measurements
+186 | |     WHERE sensor_id = $1 AND facade_id = $2
+187 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+188 | |     ORDER BY ts DESC
+189 | |     LIMIT $3
+190 | |     """
+    | |_______^
+191 |
+192 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:248:13
+    |
+246 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+247 |
+248 |       query = f"""
+    |  _____________^
+249 | |     SELECT
+250 | |         ts,
+251 | |         ROUND(value::numeric, 2) as value,
+252 | |         unit
+253 | |     FROM measurements
+254 | |     WHERE sensor_id = $1 AND facade_id = $2
+255 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+256 | |     ORDER BY ts DESC
+257 | |     LIMIT $3
+258 | |     """
+    | |_______^
+259 |
+260 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:294:13
+    |
+292 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+293 |
+294 |       query = f"""
+    |  _____________^
+295 | |     SELECT
+296 | |         time_bucket(INTERVAL '{interval_map[interval]}', ts) as time_bucket,
+297 | |         ROUND(AVG(value)::numeric, 2) as avg_value,
+298 | |         ROUND(MIN(value)::numeric, 2) as min_value,
+299 | |         ROUND(MAX(value)::numeric, 2) as max_value,
+300 | |         COUNT(*) as data_points
+301 | |     FROM measurements
+302 | |     WHERE sensor_id = $1 AND facade_id = $2
+303 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+304 | |     GROUP BY time_bucket
+305 | |     ORDER BY time_bucket
+306 | |     """
+    | |_______^
+307 |
+308 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:327:13
+    |
+325 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+326 |
+327 |       query = f"""
+    |  _____________^
+328 | |     SELECT
+329 | |         COUNT(*) as total_readings,
+330 | |         ROUND(AVG(value)::numeric, 2) as mean_value,
+331 | |         ROUND(STDDEV(value)::numeric, 2) as std_dev,
+332 | |         ROUND(MIN(value)::numeric, 2) as min_value,
+333 | |         ROUND(MAX(value)::numeric, 2) as max_value,
+334 | |         ROUND(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY value)::numeric, 2) as q25,
+335 | |         ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY value)::numeric, 2) as median,
+336 | |         ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY value)::numeric, 2) as q75,
+337 | |         MIN(ts) as first_reading,
+338 | |         MAX(ts) as last_reading
+339 | |     FROM measurements
+340 | |     WHERE sensor_id = $1 AND facade_id = $2
+341 | |     AND ts >= NOW() - INTERVAL '{hours} hours'
+342 | |     """
+    | |_______^
+343 |
+344 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:369:13
+    |
+367 |           raise HTTPException(status_code=400, detail="Hours must be between 1 and 168")
+368 |
+369 |       query = f"""
+    |  _____________^
+370 | |     WITH stats AS (
+371 | |         SELECT
+372 | |             AVG(value) as mean_val,
+373 | |             STDDEV(value) as std_val
+374 | |         FROM measurements
+375 | |         WHERE sensor_id = $1 AND facade_id = $2
+376 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+377 | |     ),
+378 | |     anomalies AS (
+379 | |         SELECT
+380 | |             ts,
+381 | |             ROUND(value::numeric, 2) as value,
+382 | |             ROUND(ABS(value - stats.mean_val) / stats.std_val::numeric, 2) as z_score
+383 | |         FROM measurements, stats
+384 | |         WHERE sensor_id = $1 AND facade_id = $2
+385 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+386 | |         AND ABS(value - stats.mean_val) > ($3 * stats.std_val)
+387 | |     )
+388 | |     SELECT * FROM anomalies
+389 | |     ORDER BY z_score DESC, ts DESC
+390 | |     LIMIT 50
+391 | |     """
+    | |_______^
+392 |
+393 |       try:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:449:17
+    |
+448 |       if facade_id:
+449 |           query = f"""
+    |  _________________^
+450 | |         SELECT
+451 | |             ROUND(AVG(value)::numeric, 2) as average,
+452 | |             COUNT(*) as data_points,
+453 | |             MIN(ts) as period_start,
+454 | |             MAX(ts) as period_end
+455 | |         FROM measurements
+456 | |         WHERE sensor_id = $1 AND facade_id = $2
+457 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+458 | |         """
+    | |___________^
+459 |           params = [variable, facade_id]
+460 |       else:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> app/routes/api.py:461:17
+    |
+459 |           params = [variable, facade_id]
+460 |       else:
+461 |           query = f"""
+    |  _________________^
+462 | |         SELECT
+463 | |             facade_id,
+464 | |             ROUND(AVG(value)::numeric, 2) as average,
+465 | |             COUNT(*) as data_points,
+466 | |             MIN(ts) as period_start,
+467 | |             MAX(ts) as period_end
+468 | |         FROM measurements
+469 | |         WHERE sensor_id = $1
+470 | |         AND ts >= NOW() - INTERVAL '{hours} hours'
+471 | |         GROUP BY facade_id
+472 | |         ORDER BY facade_id
+473 | |         """
+    | |___________^
+474 |           params = [variable]
+    |
+
+SIM105 Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+  --> repositories/timescale.py:80:13
+   |
+79 |               # Configurar políticas de retención y compresión (opcional)
+80 | /             try:
+81 | |                 await self.conn.execute("""
+82 | |                     SELECT add_retention_policy('measurements', INTERVAL '1 year', if_not_exists => TRUE);
+83 | |                 """)
+84 | |             except Exception:
+85 | |                 pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+   | |____________________^
+86 |
+87 |               try:
+   |
+help: Replace with `contextlib.suppress(Exception)`
+
+E501 Line too long (106 > 88)
+  --> repositories/timescale.py:82:89
+   |
+80 |             try:
+81 |                 await self.conn.execute("""
+82 |                     SELECT add_retention_policy('measurements', INTERVAL '1 year', if_not_exists => TRUE);
+   |                                                                                         ^^^^^^^^^^^^^^^^^^
+83 |                 """)
+84 |             except Exception:
+   |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+  --> repositories/timescale.py:84:13
+   |
+82 |                       SELECT add_retention_policy('measurements', INTERVAL '1 year', if_not_exists => TRUE);
+83 |                   """)
+84 | /             except Exception:
+85 | |                 pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+   | |____________________^
+86 |
+87 |               try:
+   |
+
+E501 Line too long (95 > 88)
+  --> repositories/timescale.py:85:89
+   |
+83 |                 """)
+84 |             except Exception:
+85 |                 pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+   |                                                                                         ^^^^^^^
+86 |
+87 |             try:
+   |
+
+SIM105 Use `contextlib.suppress(Exception)` instead of `try`-`except`-`pass`
+  --> repositories/timescale.py:87:13
+   |
+85 |                   pass  # La política puede fallar en versiones de TimescaleDB que no la soportan
+86 |
+87 | /             try:
+88 | |                 await self.conn.execute("""
+89 | |                     SELECT add_compression_policy('measurements', INTERVAL '7 days', if_not_exists => TRUE);
+90 | |                 """)
+91 | |             except Exception:
+92 | |                 pass  # La compresión puede fallar en versiones Community
+   | |____________________^
+93 |
+94 |           except Exception:
+   |
+help: Replace with `contextlib.suppress(Exception)`
+
+E501 Line too long (108 > 88)
+  --> repositories/timescale.py:89:89
+   |
+87 |             try:
+88 |                 await self.conn.execute("""
+89 |                     SELECT add_compression_policy('measurements', INTERVAL '7 days', if_not_exists => TRUE);
+   |                                                                                         ^^^^^^^^^^^^^^^^^^^^
+90 |                 """)
+91 |             except Exception:
+   |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+  --> repositories/timescale.py:91:13
+   |
+89 |                       SELECT add_compression_policy('measurements', INTERVAL '7 days', if_not_exists => TRUE);
+90 |                   """)
+91 | /             except Exception:
+92 | |                 pass  # La compresión puede fallar en versiones Community
+   | |____________________^
+93 |
+94 |           except Exception:
+   |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> repositories/timescale.py:150:25
+    |
+148 |           try:
+149 |               if facade_id:
+150 |                   query = f"""
+    |  _________________________^
+151 | |                 SELECT ts, value, unit, device_id
+152 | |                 FROM measurements
+153 | |                 WHERE sensor_id = $1 AND facade_id = $2
+154 | |                 AND ts >= NOW() - INTERVAL '{hours} hours'
+155 | |                 ORDER BY ts DESC
+156 | |                 """
+    | |___________________^
+157 |                   result = await self.conn.fetch(query, sensor_id, facade_id)
+158 |               else:
+    |
+
+S608 Possible SQL injection vector through string-based query construction
+   --> repositories/timescale.py:159:25
+    |
+157 |                   result = await self.conn.fetch(query, sensor_id, facade_id)
+158 |               else:
+159 |                   query = f"""
+    |  _________________________^
+160 | |                 SELECT ts, value, unit, device_id, facade_id
+161 | |                 FROM measurements
+162 | |                 WHERE sensor_id = $1
+163 | |                 AND ts >= NOW() - INTERVAL '{hours} hours'
+164 | |                 ORDER BY ts DESC
+165 | |                 """
+    | |___________________^
+166 |                   result = await self.conn.fetch(query, sensor_id)
+    |
+
+E501 Line too long (110 > 88)
+   --> scripts/naming_validator.py:148:89
+    |
+146 |         """
+147 |         print(
+148 |             f"{Colors.BOLD}{Colors.BLUE} Validando estándares de nombramiento - SolarGrid Monitor{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^
+149 |         )
+150 |         print(f"Proyecto: {self.project_root}\n")
+    |
+
+E501 Line too long (89 > 88)
+   --> scripts/naming_validator.py:157:89
+    |
+156 |         print(
+157 |             f"{Colors.BLUE}  Validando archivos TypeScript/React (Airbnb)...{Colors.END}"
+    |                                                                                         ^
+158 |         )
+159 |         self._validate_typescript_files()
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts/naming_validator.py:208:89
+    |
+206 |                             level=ValidationLevel.ERROR,
+207 |                             rule="PEP8-FILE-NAMING",
+208 |                             suggestion=f"Renombrar a: {self._suggest_snake_case(filename)}",
+    |                                                                                         ^^^^
+209 |                         )
+210 |                     )
+    |
+
+C901 `_validate_typescript_files` is too complex (14 > 10)
+   --> scripts/naming_validator.py:212:9
+    |
+210 |                     )
+211 |
+212 |     def _validate_typescript_files(self) -> None:
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+213 |         """
+214 |         Valida archivos TypeScript/React siguiendo Airbnb Style Guide
+    |
+
+E501 Line too long (93 > 88)
+   --> scripts/naming_validator.py:238:89
+    |
+236 |                             level=ValidationLevel.ERROR,
+237 |                             rule="REACT-COMPONENT-NAMING",
+238 |                             suggestion=f"Renombrar a: {self._suggest_pascal_case(filename)}",
+    |                                                                                         ^^^^^
+239 |                         )
+240 |                     )
+    |
+
+E501 Line too long (90 > 88)
+   --> scripts/naming_validator.py:251:89
+    |
+249 |                         ValidationResult(
+250 |                             file_path=str(ts_file.relative_to(self.project_root)),
+251 |                             message=f"Servicio TypeScript no sigue camelCase: {filename}",
+    |                                                                                         ^^
+252 |                             level=ValidationLevel.ERROR,
+253 |                             rule="TS-SERVICE-NAMING",
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts/naming_validator.py:254:89
+    |
+252 |                             level=ValidationLevel.ERROR,
+253 |                             rule="TS-SERVICE-NAMING",
+254 |                             suggestion=f"Renombrar a: {self._suggest_camel_case(filename)}",
+    |                                                                                         ^^^^
+255 |                         )
+256 |                     )
+    |
+
+E501 Line too long (96 > 88)
+   --> scripts/naming_validator.py:270:89
+    |
+268 |                             level=ValidationLevel.ERROR,
+269 |                             rule="REACT-HOOK-NAMING",
+270 |                             suggestion=f"Renombrar a: use{self._suggest_pascal_case(filename)}",
+    |                                                                                         ^^^^^^^^
+271 |                         )
+272 |                     )
+    |
+
+E501 Line too long (94 > 88)
+   --> scripts/naming_validator.py:283:89
+    |
+281 |                         ValidationResult(
+282 |                             file_path=str(type_file.relative_to(self.project_root)),
+283 |                             message=f"Definición de tipos debe seguir PascalCase: {filename}",
+    |                                                                                         ^^^^^^
+284 |                             level=ValidationLevel.WARNING,
+285 |                             rule="TS-TYPE-NAMING",
+    |
+
+E501 Line too long (122 > 88)
+   --> scripts/naming_validator.py:348:89
+    |
+346 | …                     ValidationResult(
+347 | …                         file_path=str(file_path.relative_to(self.project_root)),
+348 | …                         message=f"Archivo duplicado con typo - eliminar: {filename} (ya existe {corrected_name})",
+    |                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+349 | …                         level=ValidationLevel.ERROR,
+350 | …                         rule="DOMAIN-TYPO-DUPLICATE",
+    |
+
+E501 Line too long (92 > 88)
+   --> scripts/naming_validator.py:351:89
+    |
+349 |                                 level=ValidationLevel.ERROR,
+350 |                                 rule="DOMAIN-TYPO-DUPLICATE",
+351 |                                 suggestion=f"rm {file_path.relative_to(self.project_root)}",
+    |                                                                                         ^^^^
+352 |                             )
+353 |                         )
+    |
+
+E501 Line too long (109 > 88)
+   --> scripts/naming_validator.py:358:89
+    |
+356 | …                     ValidationResult(
+357 | …                         file_path=str(file_path.relative_to(self.project_root)),
+358 | …                         message=f"Typo detectado: '{typo}' debería ser '{correction}' en {filename}",
+    |                                                                                   ^^^^^^^^^^^^^^^^^^^^^
+359 | …                         level=ValidationLevel.ERROR,
+360 | …                         rule="DOMAIN-TYPO",
+    |
+
+E501 Line too long (104 > 88)
+   --> scripts/naming_validator.py:397:89
+    |
+395 |         if not self.results:
+396 |             print(
+397 |                 f"{Colors.GREEN} ¡Todos los archivos siguen los estándares de nombramiento!{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^^^^^
+398 |             )
+399 |             print(
+    |
+
+E501 Line too long (100 > 88)
+   --> scripts/naming_validator.py:400:89
+    |
+398 |             )
+399 |             print(
+400 |                 f"{Colors.GREEN} Proyecto cumple 100% con las convenciones establecidas{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^
+401 |             )
+402 |             return 0
+    |
+
+E501 Line too long (91 > 88)
+   --> scripts/naming_validator.py:416:88
+    |
+414 |                 if result.suggestion:
+415 |                     print(
+416 |                         f"     💡 Sugerencia: {Colors.CYAN}{result.suggestion}{Colors.END}"
+    |                                                                                         ^^^
+417 |                     )
+418 |                 print()
+    |
+
+E501 Line too long (95 > 88)
+   --> scripts/naming_validator.py:422:90
+    |
+420 |         if warnings:
+421 |             print(
+422 |                 f"{Colors.YELLOW}⚠️  Se encontraron {len(warnings)} advertencias:{Colors.END}\n"
+    |                                                                                         ^^^^^^^
+423 |             )
+424 |             for result in warnings:
+    |
+
+E501 Line too long (91 > 88)
+   --> scripts/naming_validator.py:430:88
+    |
+428 |                 if result.suggestion:
+429 |                     print(
+430 |                         f"     💡 Sugerencia: {Colors.CYAN}{result.suggestion}{Colors.END}"
+    |                                                                                         ^^^
+431 |                     )
+432 |                 print()
+    |
+
+E501 Line too long (100 > 88)
+   --> scripts/naming_validator.py:440:88
+    |
+438 |         print(f"  • Advertencias: {len(warnings)}")
+439 |         print(
+440 |             f"\n{Colors.YELLOW}📖 Consulta la documentación: docs/NAMING_CONVENTIONS.md{Colors.END}"
+    |                                                                                         ^^^^^^^^^^^^
+441 |         )
+    |
+
+C901 `receive_data` is too complex (14 > 10)
+  --> services/data_acquisition.py:55:15
+   |
+53 |             )
+54 |
+55 |     async def receive_data(self) -> None:
+   |               ^^^^^^^^^^^^
+56 |         """Recibe datos del broker MQTT de forma continua"""
+57 |         while True:
+   |
+
+B023 Function definition does not bind loop variable `messages_queue`
+  --> services/data_acquisition.py:83:25
+   |
+81 |                 def on_message(client, userdata, msg):
+82 |                     with contextlib.suppress(asyncio.QueueFull):
+83 |                         messages_queue.put_nowait(msg)
+   |                         ^^^^^^^^^^^^^^
+84 |
+85 |                 def on_disconnect(client, userdata, rc):
+   |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+   --> services/data_acquisition.py:145:17
+    |
+143 |                       client.loop_stop()
+144 |                       client.disconnect()
+145 | /                 except Exception:
+146 | |                     pass
+    | |________________________^
+147 |
+148 |       async def save_to_timescale(self, raw_data: dict) -> None:
+    |
+
+S110 `try`-`except`-`pass` detected, consider logging the exception
+   --> tools/init_timescaledb.py:167:5
+    |
+165 |           await conn.close()
+166 |
+167 | /     except Exception:
+168 | |         pass
+    | |____________^
+    |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:41:18
+   |
+40 | def random_temp():
+41 |     return round(random.uniform(20, 35), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:45:18
+   |
+44 | def random_presion():
+45 |     return round(random.uniform(0, 100), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:49:18
+   |
+48 | def random_corriente():
+49 |     return round(random.uniform(-5, 5), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:53:18
+   |
+52 | def random_voltaje():
+53 |     return round(random.uniform(0, 5), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:57:18
+   |
+56 | def random_potencia():
+57 |     return round(random.uniform(0, 100), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:61:18
+   |
+60 | def random_irradiancia():
+61 |     return round(random.uniform(0, 1000), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+  --> tools/simulate_all_sensors.py:65:18
+   |
+64 | def random_velocidad():
+65 |     return round(random.uniform(0, 20), 2)
+   |                  ^^^^^^^^^^^^^^^^^^^^^
+   |
+
+Found 45 errors.
+
+❌ Se encontraron problemas de análisis estático
+💡 Ejecuta 'ruff check . --fix' para corrección automática
+
+💅 Ejecutando Ruff - Formateo de código...
+29 files left unchanged
+
+📦 Validando ordenamiento de imports...
+All checks passed!
+
+📊 Resumen de Análisis Estático:
+================================
+• Linting: ruff check .
+• Formateo: ruff format .
+• Imports: ruff check . --select I
+• Naming: Validado automáticamente por reglas N*
+• Seguridad: Validado por reglas S*
+
+🎯 Ejecutando validador de nombramiento personalizado...
+[1m[94m Validando estándares de nombramiento - SolarGrid Monitor[0m
+Proyecto: /home/samargo/Documents/universidad_/P2/project
+
+[94m Validando archivos Python (PEP 8)...[0m
+[94m  Validando archivos TypeScript/React (Airbnb)...[0m
+[94m Validando estructura de directorios...[0m
+[94m Detectando problemas específicos...[0m
+
+[94mResultados:[0m
+[92m ¡Todos los archivos siguen los estándares de nombramiento![0m
+[92m Proyecto cumple 100% con las convenciones establecidas[0m

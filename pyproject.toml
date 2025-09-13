@@ -1,0 +1,348 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "solargrid-monitor"
+version = "1.0.0"
+description = "Sistema IoT profesional de monitoreo de fachadas solares con análisis en tiempo real"
+authors = [
+    {name = "SolarGrid Team", email = "team@solargrid-monitor.com"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+keywords = ["iot", "solar", "monitoring", "timescale", "fastapi"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "asyncpg>=0.28.0",
+    "paho-mqtt>=1.6.0",
+    "psycopg2-binary>=2.9.7",
+    "pydantic>=2.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.6",
+    "mypy>=1.6.0",
+    "pre-commit>=3.4.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/tu-usuario/solargrid-monitor"
+"Bug Reports" = "https://github.com/tu-usuario/solargrid-monitor/issues"
+"Source" = "https://github.com/tu-usuario/solargrid-monitor"
+
+# =============================================================================
+# RUFF - ANÁLISIS ESTÁTICO PRINCIPAL
+# =============================================================================
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+indent-width = 4
+
+# Activar TODAS las categorías de reglas para análisis estricto empresarial
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "C",    # mccabe complexity
+    "I",    # isort (import sorting)
+    "N",    # pep8-naming (naming conventions)
+    "D",    # pydocstyle (docstrings)
+    "UP",   # pyupgrade (syntax upgrades)
+    "YTT",  # flake8-2020 (misuse of sys.version)
+    "ANN",  # flake8-annotations (type annotations)
+    "ASYNC", # flake8-async (async/await)
+    "S",    # bandit (security testing)
+    "BLE",  # flake8-blind-except (blind exception catching)
+    "FBT",  # flake8-boolean-trap (boolean trap)
+    "B",    # flake8-bugbear (likely bugs)
+    "A",    # flake8-builtins (builtin shadowing)
+    "COM",  # flake8-commas (trailing commas)
+    "CPY",  # flake8-copyright (copyright)
+    "C4",   # flake8-comprehensions (comprehensions)
+    "DTZ",  # flake8-datetimez (timezone aware datetimes)
+    "T10",  # flake8-debugger (debugger imports)
+    "DJ",   # flake8-django (django best practices)
+    "EM",   # flake8-errmsg (error messages)
+    "EXE",  # flake8-executable (executable)
+    "FA",   # flake8-future-annotations (future annotations)
+    "ISC",  # flake8-implicit-str-concat (string concatenation)
+    "ICN",  # flake8-import-conventions (import conventions)
+    "G",    # flake8-logging-format (logging format)
+    "INP",  # flake8-no-pep420 (no pep420)
+    "PIE",  # flake8-pie (misc lints)
+    "T20",  # flake8-print (print statements)
+    "PYI",  # flake8-pyi (stub files)
+    "PT",   # flake8-pytest-style (pytest style)
+    "Q",    # flake8-quotes (quotes)
+    "RSE",  # flake8-raise (raise)
+    "RET",  # flake8-return (return)
+    "SLF",  # flake8-self (private member access)
+    "SLOT", # flake8-slots (slots)
+    "SIM",  # flake8-simplify (simplify)
+    "TID",  # flake8-tidy-imports (tidy imports)
+    "TCH",  # flake8-type-checking (type checking)
+    "INT",  # flake8-gettext (internationalization)
+    "ARG",  # flake8-unused-arguments (unused arguments)
+    "PTH",  # flake8-use-pathlib (use pathlib)
+    "TD",   # flake8-todos (todo comments)
+    "FIX",  # flake8-fixme (fixme comments)
+    "ERA",  # eradicate (commented code)
+    "PD",   # pandas-vet (pandas)
+    "PGH",  # pygrep-hooks (misc)
+    "PL",   # Pylint
+    "TRY",  # tryceratops (exception handling)
+    "FLY",  # flynt (f-strings)
+    "NPY",  # NumPy-specific rules
+    "AIR",  # Airflow-specific rules  
+    "PERF", # Perflint (performance)
+    "FURB", # refurb (modernize)
+    "LOG",  # flake8-logging (logging)
+    "RUF",  # Ruff-specific rules
+]
+
+# Ignorar reglas específicas con justificación técnica
+ignore = [
+    # Docstring related - Permitir flexibilidad en documentación
+    "D100",   # Missing docstring in public module
+    "D104",   # Missing docstring in public package  
+    "D107",   # Missing docstring in __init__
+    
+    # Type annotations - Permitir flexibilidad en métodos especiales
+    "ANN101", # Missing type annotation for self in method
+    "ANN102", # Missing type annotation for cls in classmethod
+    "ANN204", # Missing return type annotation for special method
+    
+    # Boolean traps - Permitir en FastAPI Query parameters
+    "FBT001", # Boolean positional arg in function definition
+    "FBT002", # Boolean default arg in function definition
+    
+    # Print statements - Permitir en herramientas de desarrollo
+    "T201",   # print found (permitido en tools/)
+    
+    # Todo comments - Permitir TODOs bien documentados
+    "TD002",  # Missing author in TODO
+    "TD003",  # Missing issue link in TODO
+    
+    # Complexity - Ajustar para casos específicos del dominio IoT
+    "PLR0913", # Too many arguments to function call (sensores IoT)
+    
+    # Performance - False positives en operaciones de IoT
+    "PERF203", # try-except within a loop (necesario para MQTT)
+]
+
+# Configuraciones por archivo para casos específicos
+[tool.ruff.per-file-ignores]
+# Init files - Permitir imports unused
+"__init__.py" = ["F401", "F403"]
+
+# Tests - Relajar reglas para testing
+"tests/**/*.py" = [
+    "S101",   # Use of assert detected
+    "D103",   # Missing docstring in public function
+    "ANN001", # Missing type annotation for function argument
+    "PLR2004", # Magic value used in comparison
+]
+
+# Tools y scripts - Permitir prints y random para simulación
+"tools/**/*.py" = [
+    "S311",   # Standard pseudo-random generators (simulación)
+    "T201",   # print found (debugging tools)
+    "S608",   # Possible SQL injection (false positive en tools)
+]
+
+# Scripts de análisis - Permitir complejidad adicional
+"scripts/**/*.py" = [
+    "T201",   # print found (output scripts)
+    "PLR0912", # Too many branches (análisis complejo)
+    "C901",   # Complex function (análisis de naming)
+]
+
+# FastAPI routes - Permitir múltiples returns y complejidad de endpoints
+"app/routes/**/*.py" = [
+    "PLR0911", # Too many return statements (múltiples endpoints)
+    "C901",    # Complex function (lógica de endpoints IoT)
+]
+
+# =============================================================================
+# RUFF CONFIGURACIONES ESPECÍFICAS
+# =============================================================================
+
+# McCabe complexity - Límite estricto para mantenibilidad
+[tool.ruff.mccabe]
+max-complexity = 10
+
+# Import sorting - Organización estricta de imports
+[tool.ruff.isort]
+known-first-party = ["app", "models", "services", "repositories", "tools"]
+known-third-party = ["fastapi", "pydantic", "asyncpg", "paho"]
+section-order = [
+    "future", 
+    "standard-library", 
+    "third-party", 
+    "first-party", 
+    "local-folder"
+]
+split-on-trailing-comma = true
+force-single-line = false
+force-sort-within-sections = true
+
+# PEP 8 Naming - Enforced naming conventions
+[tool.ruff.pep8-naming]
+# Permitir nombres de variables IoT específicas del dominio
+extend-ignore-names = ["IoT", "MQTT", "API", "DB", "SQL", "UUID", "JSON", "HTTP"]
+classmethod-decorators = ["pydantic.validator", "pydantic.root_validator"]
+
+# Docstring conventions - Google style
+[tool.ruff.pydocstyle]
+convention = "google"
+ignore-decorators = ["typing.overload"]
+
+# Pylint configurations - Reglas adicionales de calidad
+[tool.ruff.pylint]
+max-args = 8  # Permitir hasta 8 argumentos (sensores IoT)
+max-branches = 15  # Permitir lógica compleja en endpoints
+max-returns = 8   # Permitir múltiples returns en APIs
+max-statements = 60  # Permitir funciones de procesamiento complejas
+
+# =============================================================================
+# MYPY - TYPE CHECKING ESTÁTICO
+# =============================================================================
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+# Configuraciones por módulo
+[[tool.mypy.overrides]]
+module = [
+    "paho.*",
+    "asyncpg.*", 
+    "uvicorn.*"
+]
+ignore_missing_imports = true
+
+# =============================================================================
+# PYTEST - TESTING FRAMEWORK
+# =============================================================================
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-ra",
+    "--strict-markers", 
+    "--strict-config",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80"
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "api: marks tests as API endpoint tests",
+    "mqtt: marks tests as MQTT related tests",
+]
+
+# =============================================================================
+# COVERAGE - CODE COVERAGE
+# =============================================================================
+[tool.coverage.run]
+source = ["app", "services", "repositories", "models"]
+omit = [
+    "*/tests/*",
+    "*/venv/*", 
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "tools/*",
+    "scripts/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:"
+]
+
+# =============================================================================
+# PRE-COMMIT - HOOKS DE CALIDAD AUTOMÁTICA
+# =============================================================================
+# Configuración en .pre-commit-config.yaml
+# Aquí documentamos qué hooks están activos:
+
+# HOOKS ACTIVOS:
+# - ruff: Linting automático con auto-fix
+# - ruff-format: Formateo automático del código  
+# - mypy: Type checking estático
+# - trailing-whitespace: Eliminar espacios al final
+# - end-of-file-fixer: Asegurar newline al final
+# - check-yaml: Validar sintaxis YAML
+# - check-json: Validar sintaxis JSON
+# - check-merge-conflict: Detectar conflictos de merge
+
+# =============================================================================
+# CONFIGURACIÓN DE HERRAMIENTAS AUXILIARES
+# =============================================================================
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "services*", "repositories*", "models*"]
+exclude = ["tests*", "docs*", "scripts*", "tools*"]
+
+# Black compatibility (via ruff-format)
+[tool.black]
+line-length = 88
+target-version = ['py39', 'py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
