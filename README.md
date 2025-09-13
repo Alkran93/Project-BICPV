@@ -1,4 +1,4 @@
-# 🌞 SolarGrid Monitor - Sistema IoT de Monitoreo de Fachadas Solares
+# 🌞 **BIPCV - Building Integrated Concentrated Photovaltic**
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-00a393.svg)](https://fastapi.tiangolo.com/)
@@ -14,7 +14,7 @@
 
 SolarGrid Monitor es una **solución IoT empresarial** diseñada para monitorear y optimizar el rendimiento de sistemas de fachadas solares. El proyecto integra sensores de alta precisión, análisis de datos en tiempo real y visualizaciones interactivas para maximizar la eficiencia energética.
 
-### ** Arquitectura del Sistema**
+### **Arquitectura del Sistema**
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
@@ -34,19 +34,19 @@ SolarGrid Monitor es una **solución IoT empresarial** diseñada para monitorear
 
 ##  **Características Principales**
 
-### ** Monitoreo en Tiempo Real**
+### **Monitoreo en Tiempo Real**
 - **12+ tipos de sensores** monitoreados simultáneamente
 - **Visualización live** de métricas críticas
 - **Alertas automáticas** por umbrales configurables
 - **Historiales detallados** con análisis temporal
 
-### ** Análisis Avanzado**
+### **Análisis Avanzado**
 - **Detección de anomalías** usando machine learning
 - **Predicción de rendimiento** basada en patrones históricos  
 - **Optimización automática** de parámetros del sistema
 - **Reportes de eficiencia** energética
 
-### ** Calidad Empresarial**
+### **Calidad Empresarial**
 - **Análisis estático completo** (67+ reglas de linting)
 - **Arquitectura escalable** con microservicios
 - **Seguridad por diseño** con validación de inputs
@@ -494,9 +494,9 @@ git pull origin main
 git branch -d feature/iot-anomaly-detection
 
 # Deploy automático ejecuta:
-# 🚀 Production deployment
-# 📊 Health checks
-# 📈 Monitoring activation
+#  Production deployment
+#  Health checks
+#  Monitoring activation
 ```
 
 ---
@@ -507,7 +507,7 @@ git branch -d feature/iot-anomaly-detection
 
 | Estrategia | Complejidad | CI/CD | Team Size | Deployment | IoT Fit |
 |-----------|-------------|-------|-----------|------------|---------|
-| **GitHub Flow** | ⭐ Simple | ✅ Excelente | 2-10 devs | Continuo | 🎯 **Perfecto** |
+| **GitHub Flow** | ⭐ Simple | ✅ Excelente | 2-5 devs | Continuo | 🎯 **Perfecto** |
 | GitFlow | ⭐⭐⭐ Complejo | ❌ Difícil | 10+ devs | Por releases | ❌ Overkill |
 | Trunk-Based | ⭐⭐ Medio | ✅ Bueno | 1-5 devs | Muy rápido | ⚠️ Riesgoso |
 
@@ -539,7 +539,7 @@ git branch -d feature/iot-anomaly-detection
 
 ---
 
-### **⚙ Configuración Técnica**
+### **Configuración Técnica**
 
 #### **Branch Protection Rules**
 ```yaml
