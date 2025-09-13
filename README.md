@@ -507,7 +507,7 @@ git branch -d feature/iot-anomaly-detection
 
 | Estrategia | Complejidad | CI/CD | Team Size | Deployment | IoT Fit |
 |-----------|-------------|-------|-----------|------------|---------|
-| **GitHub Flow** | ⭐ Simple | ✅ Excelente | 2-5 devs | Continuo | 🎯 **Perfecto** |
+| **GitHub Flow** | ⭐ Simple | ✅ Excelente | 2-10 devs | Continuo | 🎯 **Perfecto** |
 | GitFlow | ⭐⭐⭐ Complejo | ❌ Difícil | 10+ devs | Por releases | ❌ Overkill |
 | Trunk-Based | ⭐⭐ Medio | ✅ Bueno | 1-5 devs | Muy rápido | ⚠️ Riesgoso |
 
