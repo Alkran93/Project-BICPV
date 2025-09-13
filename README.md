@@ -10,11 +10,11 @@
 
 ---
 
-## 🎯 **Descripción del Proyecto**
+## **Descripción del Proyecto**
 
 SolarGrid Monitor es una **solución IoT empresarial** diseñada para monitorear y optimizar el rendimiento de sistemas de fachadas solares. El proyecto integra sensores de alta precisión, análisis de datos en tiempo real y visualizaciones interactivas para maximizar la eficiencia energética.
 
-### **🏗️ Arquitectura del Sistema**
+### ** Arquitectura del Sistema**
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
@@ -32,21 +32,21 @@ SolarGrid Monitor es una **solución IoT empresarial** diseñada para monitorear
 
 ---
 
-## ✨ **Características Principales**
+##  **Características Principales**
 
-### **📊 Monitoreo en Tiempo Real**
+### ** Monitoreo en Tiempo Real**
 - **12+ tipos de sensores** monitoreados simultáneamente
 - **Visualización live** de métricas críticas
 - **Alertas automáticas** por umbrales configurables
 - **Historiales detallados** con análisis temporal
 
-### **🔬 Análisis Avanzado**
+### ** Análisis Avanzado**
 - **Detección de anomalías** usando machine learning
 - **Predicción de rendimiento** basada en patrones históricos  
 - **Optimización automática** de parámetros del sistema
 - **Reportes de eficiencia** energética
 
-### **🛡️ Calidad Empresarial**
+### ** Calidad Empresarial**
 - **Análisis estático completo** (67+ reglas de linting)
 - **Arquitectura escalable** con microservicios
 - **Seguridad por diseño** con validación de inputs
@@ -54,7 +54,7 @@ SolarGrid Monitor es una **solución IoT empresarial** diseñada para monitorear
 
 ---
 
-## 🚀 **Tecnologías Utilizadas**
+## **Tecnologías Utilizadas**
 
 ### **Backend (Python)**
 ```python
@@ -82,7 +82,7 @@ PostgreSQL 15+      # Base de datos relacional principal
 
 ---
 
-## 📋 **Requisitos del Sistema**
+##  **Requisitos del Sistema**
 
 ### **Mínimos**
 - **Python**: 3.9+ (recomendado 3.11+)
@@ -110,7 +110,7 @@ pre-commit>=3.4.0
 
 ---
 
-## ⚡ **Instalación y Configuración**
+##  **Instalación y Configuración**
 
 ### **1. Clonación del Repositorio**
 ```bash
@@ -163,7 +163,7 @@ API_PORT=8000
 
 ---
 
-## 🏃‍♂️ **Ejecución del Sistema**
+## **Ejecución del Sistema**
 
 ### **Desarrollo Local**
 ```bash
@@ -204,7 +204,7 @@ docker-compose logs -f --tail=100
 
 ---
 
-## 📊 **API Endpoints Principales**
+## **API Endpoints Principales**
 
 ### **Sistema General**
 ```http
@@ -239,7 +239,7 @@ GET  /api/timeseries/{sensor_id}/{facade_id} # Series temporales
 
 ---
 
-## 🔍 **Calidad de Código**
+##  **Calidad de Código**
 
 ### **Análisis Estático Implementado**
 
@@ -316,7 +316,7 @@ solargrid-monitor/
 
 ---
 
-## 🧪 **Testing y Validación**
+##  **Testing y Validación**
 
 ### **Ejecución de Tests**
 ```bash
@@ -342,28 +342,28 @@ bash scripts/final_quality_check.sh
 
 ---
 
-## 📚 **Documentación Adicional**
+##  **Documentación Adicional**
 
 ### **Documentos Técnicos**
-- 📋 [**Análisis Estático**](docs/STATIC_ANALYSIS.md) - Configuración completa de herramientas
-- 🔧 [**API Reference**](docs/API_REFERENCE.md) - Documentación detallada de endpoints
-- 🚀 [**Deployment Guide**](docs/DEPLOYMENT_GUIDE.md) - Guía de despliegue en producción
-- 🎯 [**Architecture Guide**](docs/ARCHITECTURE.md) - Decisiones arquitecturales
+-  [**Análisis Estático**](docs/STATIC_ANALYSIS.md) - Configuración completa de herramientas
+-  [**API Reference**](docs/API_REFERENCE.md) - Documentación detallada de endpoints
+-  [**Deployment Guide**](docs/DEPLOYMENT_GUIDE.md) - Guía de despliegue en producción
+-  [**Architecture Guide**](docs/ARCHITECTURE.md) - Decisiones arquitecturales
 
 ### **Recursos de Desarrollo**
-- 📊 [**Métricas de Calidad**](docs/FINAL_CORRECTIONS_SUMMARY.md) - Reporte de mejoras aplicadas
-- 🛠️ [**Configuración IDE**](docs/IDE_SETUP.md) - Setup para VS Code, PyCharm
-- 🔍 [**Troubleshooting**](docs/TROUBLESHOOTING.md) - Solución de problemas comunes
+-  [**Métricas de Calidad**](docs/FINAL_CORRECTIONS_SUMMARY.md) - Reporte de mejoras aplicadas
+-  [**Configuración IDE**](docs/IDE_SETUP.md) - Setup para VS Code, PyCharm
+-  [**Troubleshooting**](docs/TROUBLESHOOTING.md) - Solución de problemas comunes
 
 ---
 
-## 🌿 **Estrategia de Branching - GitHub Flow**
+##  **Estrategia de Branching - GitHub Flow**
 
-### **📋 Resumen Ejecutivo**
+### ** Resumen Ejecutivo**
 
 **SolarGrid Monitor** implementa **GitHub Flow** como estrategia de branching oficial, elegida tras análisis técnico exhaustivo entre 4 alternativas principales (GitFlow, Trunk-Based, Feature Branches).
 
-#### **🎯 Decisión Estratégica:**
+#### ** Decisión Estratégica:**
 - **Puntuación**: 92/100 vs competencia (65-74/100)
 - **Justificación**: Optimizada para sistemas IoT críticos con deployment continuo
 - **ROI**: +40% velocity, -60% bugs, -50% time-to-market
@@ -405,9 +405,9 @@ gitGraph
     commit id: "Deploy v1.2"
 ```
 
-### **🎯 Principios de GitHub Flow**
+### ** Principios de GitHub Flow**
 
-#### **1. 🚀 Branch Principal Siempre Desplegable**
+#### **1.  Branch Principal Siempre Desplegable**
 ```bash
 main/master  # Siempre estable, listo para producción
 ├── Código probado y validado
@@ -416,7 +416,7 @@ main/master  # Siempre estable, listo para producción
 └── Pre-commit hooks ejecutados
 ```
 
-#### **2. 🔄 Branches por Feature/Issue**
+#### **2.  Branches por Feature/Issue**
 ```bash
 # Naming Convention para branches
 feature/nombre-descriptivo     # Nuevas funcionalidades
@@ -426,20 +426,20 @@ docs/actualizacion-tema       # Actualizaciones de documentación
 refactor/componente-nombre    # Refactoring de código
 ```
 
-#### **3. 📝 Pull Requests Obligatorios**
+#### **3.  Pull Requests Obligatorios**
 - **Code Review** por al menos 1 desarrollador
 - **Análisis estático** automático (Ruff, MyPy)
 - **Tests automatizados** ejecutados
 - **Deployment preview** generado
 
-#### **4. ⚡ Despliegue Continuo**
+#### **4.  Despliegue Continuo**
 - **Merge a main** → **Deploy automático**
 - **Rollback** rápido si es necesario
 - **Feature flags** para funcionalidades experimentales
 
 ---
 
-### **🏗️ Flujo de Trabajo Detallado**
+### ** Flujo de Trabajo Detallado**
 
 #### **Paso 1: Crear Branch desde Main**
 ```bash
@@ -479,11 +479,11 @@ gh pr create \
   --body "Implements statistical anomaly detection for sensor data..."
 
 # Automated checks ejecutan:
-# 🔍 Static analysis (GitHub Actions)
-# 🧪 Test suite completo
-# 📊 Code coverage report
-# 🛡️ Security scan
-# 📋 Dependency check
+#  Static analysis (GitHub Actions)
+#  Test suite completo
+#  Code coverage report
+# 🛡 Security scan
+#  Dependency check
 ```
 
 #### **Paso 4: Merge & Deploy**
@@ -501,7 +501,7 @@ git branch -d feature/iot-anomaly-detection
 
 ---
 
-### **🎯 Justificación Técnica**
+### ** Justificación Técnica**
 
 #### **¿Por qué GitHub Flow vs Alternativas?**
 
@@ -513,25 +513,25 @@ git branch -d feature/iot-anomaly-detection
 
 #### **Ventajas para SolarGrid Monitor:**
 
-##### **✅ Simplicidad Operacional**
+##### ** Simplicidad Operacional**
 - **Una sola branch principal** (main)
 - **Sin branches permanentes** complejos
 - **Flujo lineal** fácil de entender
 - **Onboarding rápido** para nuevos desarrolladores
 
-##### **✅ Integración Continua Óptima**
+##### ** Integración Continua Óptima**
 - **Feedback inmediato** en cada PR
 - **Conflicts mínimos** por integración frecuente
 - **Quality gates** automáticos
 - **Deploy preview** para testing
 
-##### **✅ Perfecta para IoT/Sistemas Críticos**
+##### ** Perfecta para IoT/Sistemas Críticos**
 - **Rollback rápido** ante issues de sensores
 - **Hotfixes inmediatos** para problemas críticos
 - **Feature flags** para desactivar funcionalidades
 - **Monitoring continuo** del sistema
 
-##### **✅ Escalabilidad del Equipo**
+##### ** Escalabilidad del Equipo**
 - **2-8 desarrolladores** trabajando simultáneamente
 - **Code review** distribuido
 - **Knowledge sharing** natural
@@ -539,7 +539,7 @@ git branch -d feature/iot-anomaly-detection
 
 ---
 
-### **⚙️ Configuración Técnica**
+### **⚙ Configuración Técnica**
 
 #### **Branch Protection Rules**
 ```yaml
@@ -592,7 +592,7 @@ perf: improve time-series query performance
 
 ---
 
-### **📊 Métricas y Monitoreo**
+### ** Métricas y Monitoreo**
 
 #### **KPIs del Flujo de Desarrollo**
 - **Lead Time**: Feature → Production (target: <3 días)
@@ -611,7 +611,7 @@ perf: improve time-series query performance
 
 ---
 
-### **🚨 Gestión de Emergencias**
+### ** Gestión de Emergencias**
 
 #### **Hotfix Flow (Crítico)**
 ```bash
