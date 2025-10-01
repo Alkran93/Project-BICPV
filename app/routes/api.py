@@ -12,7 +12,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from repositories.timescale import TimescaleRepository
+from repositories.timescale import TimeScaleDBStorage
 
 
 # Router principal

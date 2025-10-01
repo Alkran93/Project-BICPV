@@ -5,7 +5,7 @@ import {
   AlertTriangle,
   CheckCircle,
 } from "lucide-react";
-import "../styles/SystemAnasysis.css";
+import "../styles/SystemAnalysis.css";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
