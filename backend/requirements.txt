@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+asyncpg
+redis>=4.6.0
+python-dotenv
+pydantic
+pydantic-settings
+matplotlib
