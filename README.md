@@ -199,7 +199,7 @@ pip install paho-mqtt
 python3 publisher_simulator.py
 
 # Run for specific facade
-python3 publisher_simulator.py --facade_id 2 --facade_type refrigerada
+python publisher_simulator.py --facades "no_refrigerada:1:raspi_no_ref_01"
 
 # Available options:
 # --facade_id      Facade identifier (default: 1)
@@ -303,7 +303,7 @@ docker-compose ps | grep 1884
 mosquitto_sub -h localhost -p 1884 -t "sensor/#" -v
 
 # Use correct port in simulator
-python3 publisher_simulator.py --broker localhost --port 1884
+python publisher_simulator.py --facades "no_refrigerada:1:raspi_no_ref_01" --port 1884
 ```
 
 #### 3. **No data in database**
