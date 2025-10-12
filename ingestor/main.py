@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 
 import asyncpg
+import redis
 import redis.asyncio as aioredis
 from aiomqtt import Client, MqttError
 

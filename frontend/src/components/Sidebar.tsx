@@ -1,10 +1,35 @@
-import { Settings, Power, BarChart3 } from "lucide-react";
+import {
+  Settings,
+  Power,
+  BarChart3,
+  Bell,
+  FileDown,
+  Thermometer,
+  Activity,
+  AlertTriangle,
+} from "lucide-react";
 
 type SidebarProps = {
   onComparisonClick?: () => void;
+  onAlertsClick?: () => void;
+  onRealtimeAlertsClick?: () => void;
+  onCSVExportClick?: () => void;
+  onTempComparisonClick?: () => void;
+  onRefrigerantCycleClick?: () => void;
+  onWaterTempsClick?: () => void;
+  onPerformanceClick?: () => void;
 };
 
-export default function Sidebar({ onComparisonClick }: SidebarProps) {
+export default function Sidebar({
+  onComparisonClick,
+  onAlertsClick,
+  onRealtimeAlertsClick,
+  onCSVExportClick,
+  onTempComparisonClick,
+  onRefrigerantCycleClick,
+  onWaterTempsClick,
+  onPerformanceClick,
+}: SidebarProps) {
   return (
     <aside className="sidebar" aria-label="Sidebar navigation">
       <div>
@@ -19,25 +44,90 @@ export default function Sidebar({ onComparisonClick }: SidebarProps) {
         </div>
 
         <nav className="nav" aria-label="Main">
-          <a href="#">Panel</a>
-          <a href="#">Dashboard</a>
-          <a href="#">Histórico</a>
+          {/* Panel principal */}
+          <a href="#">Inicio</a>
+
+          {/* === SECCIÓN ALERTAS === */}
           <a
             href="#"
-            onClick={e => {
+            onClick={(e) => {
+              e.preventDefault();
+              onAlertsClick?.();
+            }}
+          >
+            <AlertTriangle size={16} /> Historial de Alertas
+          </a>
+
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onRealtimeAlertsClick?.();
+            }}
+          >
+            <Bell size={16} /> Alertas Automáticas
+          </a>
+
+          {/* === SECCIÓN ANÁLISIS TÉRMICO === */}
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onTempComparisonClick?.();
+            }}
+          >
+            <Thermometer size={16} /> Comparativa de Temperaturas
+          </a>
+
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onRefrigerantCycleClick?.();
+            }}
+          >
+            <Activity size={16} /> Ciclo de Refrigerante
+          </a>
+
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onWaterTempsClick?.();
+            }}
+          >
+            <Thermometer size={16} /> Agua In/Out Intercambiador
+          </a>
+
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onPerformanceClick?.();
+            }}
+          >
+            <BarChart3 size={16} /> Rendimiento (Con/Sin Refrigeración)
+          </a>
+          
+          <a
+            href="#"
+            onClick={(e) => {
               e.preventDefault();
               onComparisonClick?.();
             }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              color: "#ffffffff",
-              fontWeight: "500",
+          >
+            <BarChart3 size={16} /> Comparación Térmica
+          </a>
+
+          {/* === EXPORTAR === */}
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onCSVExportClick?.();
             }}
           >
-            <BarChart3 size={16} />
-            Comparación Térmica
+            <FileDown size={16} /> Exportar CSV
           </a>
         </nav>
       </div>
