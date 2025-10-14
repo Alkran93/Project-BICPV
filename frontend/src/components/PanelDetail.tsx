@@ -7,7 +7,7 @@ type PanelDetailProps = {
   refrigerated: boolean;
   faults: number;
   temperature: number;
-  sensors: number[];
+  sensors: number[];  
   onBack: () => void;
   onSystemTempClick: () => void;
   id?: string; // Añadir ID para hacer las consultas API
@@ -21,15 +21,7 @@ interface TemperatureSensor {
   sensor_type: string;
 }
 
-interface FacadeOverview {
-  facade_id: string;
-  total_sensors: number;
-  total_devices: number;
-  last_update: string;
-  avg_temperature: number;
-  irradiancia: number;
-  velocidad_viento: number;
-}
+
 
 export default function PanelDetail({
   title,
@@ -56,7 +48,7 @@ export default function PanelDetail({
   // Función para obtener datos de overview (condiciones ambientales)
   const fetchOverviewData = async () => {
     try {
-      const url = `http://127.0.0.1:8000/api/overview/`;
+      const url = `http://localhost:8000/facades/${id}`;
       console.log(`🌍 Fetching overview data from: ${url}`);
 
       const response = await fetch(url);
@@ -65,32 +57,24 @@ export default function PanelDetail({
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log(`📋 Overview API response:`, data);
-      console.log(`🔍 Looking for facade_id: "${id}"`);
+      const facadeData = await response.json();
+      console.log(`📋 Facade API response:`, facadeData);
 
-      // Buscar la fachada específica en el array
-      const facadeData = data.find((facade: FacadeOverview) => facade.facade_id === id);
+      // Buscar datos ambientales en current_readings
+      const readings = facadeData.current_readings || [];
+      const irradiance = readings.find((r: any) => r.sensor_name === 'Irradiancia')?.value || 0;
+      const windSpeed = readings.find((r: any) => r.sensor_name === 'Velocidad_Viento')?.value || 0;
+      const ambientTemp = readings.find((r: any) => r.sensor_name === 'Temperatura_Ambiente')?.value || 0;
+      const humidity = readings.find((r: any) => r.sensor_name === 'Humedad')?.value || 65;
 
-      if (facadeData) {
-        console.log(`✅ Found facade data:`, facadeData);
-        console.log(
-          `�️ Setting environmental data - Irradiance: ${facadeData.irradiancia}, Wind: ${facadeData.velocidad_viento}, Temp: ${facadeData.avg_temperature}`
-        );
+      console.log(`🌡️ Extracted environmental data - Irradiance: ${irradiance}, Wind: ${windSpeed}, Temp: ${ambientTemp}, Humidity: ${humidity}`);
 
-        setEnvironmentalData({
-          irradiance: facadeData.irradiancia,
-          windSpeed: facadeData.velocidad_viento,
-          ambientTemp: facadeData.avg_temperature,
-          humidity: 65, // Valor fijo por ahora
-        });
-      } else {
-        console.warn(`⚠️ No overview data found for facade "${id}"`);
-        console.log(
-          `Available facade IDs:`,
-          data.map((f: FacadeOverview) => f.facade_id)
-        );
-      }
+      setEnvironmentalData({
+        irradiance,
+        windSpeed,
+        ambientTemp,
+        humidity,
+      });
     } catch (error) {
       console.error("💥 Error fetching overview data:", error);
     }
@@ -99,7 +83,7 @@ export default function PanelDetail({
   // Función para obtener la lista de sensores
   const fetchSensorsList = async () => {
     try {
-      const url = `http://127.0.0.1:8000/api/sensors/list/${id}`;
+      const url = `http://localhost:8000/facades/${id}/sensors`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -107,7 +91,7 @@ export default function PanelDetail({
       }
 
       const data = await response.json();
-      setSensorsList(data);
+      setSensorsList(data.sensors || []);
     } catch (error) {
       console.error("Error fetching sensors list:", error);
       setSensorsList([]);
@@ -118,7 +102,7 @@ export default function PanelDetail({
   const fetchTemperatureSensors = async () => {
     setLoading(true);
     try {
-      const url = `http://127.0.0.1:8000/api/dashboard/realtime/${id}`;
+      const url = `http://localhost:8000/realtime/facades/${id}`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -126,23 +110,33 @@ export default function PanelDetail({
       }
 
       const data = await response.json();
+      console.log("🔍 Realtime API response:", data);
 
-      // Filtrar solo sensores de temperatura
-      const tempSensors = data.filter(
-        (sensor: any) =>
-          sensor.sensor_type === "temperature" &&
-          sensor.sensor_id.startsWith("Temperatura_")
-      );
+      // La respuesta tiene estructura: { facade_id, facade_type, data: {...} }
+      const sensorData = data.data || {};
+      
+      // Filtrar solo sensores de temperatura y convertir a formato esperado
+      const tempSensors: TemperatureSensor[] = [];
+      
+      Object.entries(sensorData).forEach(([sensorName, sensorInfo]: [string, any]) => {
+        if (sensorName.startsWith("Temperature_M")) {
+          tempSensors.push({
+            sensor_id: sensorName,
+            value: sensorInfo.value,
+            unit: "°C",
+            last_update: sensorInfo.ts,
+            sensor_type: "temperature"
+          });
+        }
+      });
 
+      console.log("🌡️ Processed temperature sensors:", tempSensors);
       setTemperatureSensors(tempSensors);
 
       // Calcular y actualizar la temperatura promedio con los datos filtrados
       if (tempSensors.length > 0) {
-        const values = tempSensors.map((sensor: any) => sensor.value);
-        const sum = tempSensors.reduce(
-          (acc: number, sensor: any) => acc + sensor.value,
-          0
-        );
+        const values = tempSensors.map(sensor => sensor.value);
+        const sum = tempSensors.reduce((acc, sensor) => acc + sensor.value, 0);
         const avgTemp = sum / tempSensors.length;
 
         console.log(`🌡️ Temperature sensors values:`, values);

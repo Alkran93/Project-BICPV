@@ -37,7 +37,7 @@ export default function Panel({
 
     setLoading(true);
     try {
-      const url = `http://127.0.0.1:8000/api/dashboard/realtime/${id}`;
+      const url = `http://localhost:8000/realtime/facades/${id}`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -45,14 +45,26 @@ export default function Panel({
       }
 
       const data = await response.json();
+      console.log("🔍 Panel - Realtime API response:", data);
 
-      // Filtrar solo sensores de temperatura
-      const tempSensors = data.filter(
-        (sensor: any) =>
-          sensor.sensor_type === "temperature" &&
-          sensor.sensor_id.startsWith("Temperatura_")
-      );
+      // La respuesta tiene estructura: { facade_id, facade_type, data: {...} }
+      const sensorData = data.data || {};
+      
+      // Filtrar solo sensores de temperatura y convertir a formato esperado
+      const tempSensors: TemperatureSensor[] = [];
+      
+      Object.entries(sensorData).forEach(([sensorName, sensorInfo]: [string, any]) => {
+        if (sensorName.startsWith("Temperature_M")) {
+          tempSensors.push({
+            sensor_id: sensorName,
+            value: sensorInfo.value,
+            unit: "°C",
+            last_update: sensorInfo.ts
+          });
+        }
+      });
 
+      console.log("🌡️ Panel - Processed temperature sensors:", tempSensors);
       setTemperatureSensors(tempSensors);
     } catch (error) {
       console.error("Error fetching temperature sensors:", error);

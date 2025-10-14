@@ -85,7 +85,7 @@ function RealtimeTestApp() {
           }}
         >
           <strong>Endpoint a probar:</strong>
-          <code>http://127.0.0.1:8000/api/dashboard/realtime/{facadeId}</code>
+          <code>http://localhost:8000/realtime/facades/{facadeId}</code>
         </div>
       </div>
 

@@ -4,10 +4,9 @@ import {
   BarChart3,
   TrendingUp,
   Activity,
-  Target,
   AlertTriangle,
 } from "lucide-react";
-import { Line, Bar, Doughnut, Scatter } from "react-chartjs-2";
+import { Line, Bar, Scatter } from "react-chartjs-2";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Chart as ChartJS,
@@ -42,223 +41,183 @@ type ComparisonChartProps = {
 };
 
 interface SensorStats {
-  sensor_id: string;
-  total_readings: number;
-  mean_value: number;
-  std_dev: number;
+  sensor_name: string;
+  facade_type: string;
+  avg_value: number;
   min_value: number;
   max_value: number;
-  q25: number;
-  median: number;
-  q75: number;
-  first_reading: string;
-  last_reading: string;
+  count: number;
 }
 
-export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartProps) {
-  const [sensorsStats, setSensorsStats] = useState<SensorStats[]>([]);
+export default function ComparisonChart({ onBack }: ComparisonChartProps) {
+  const [refrigeradaStats, setRefrigeradaStats] = useState<SensorStats[]>([]);
+  const [noRefrigeradaStats, setNoRefrigeradaStats] = useState<SensorStats[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const isMountedRef = useRef(true);
 
-  // Lista de sensores de temperatura para consultar
-  const temperatureSensors = [
-    "Temperatura_L1_1",
-    "Temperatura_L1_2",
-    "Temperatura_L1_3",
-    "Temperatura_L2_1",
-    "Temperatura_L2_2",
-    "Temperatura_L2_3",
-    "Temperatura_L3_1",
-    "Temperatura_L3_2",
-    "Temperatura_L3_3",
-    "Temperatura_L4_1",
-    "Temperatura_L4_2",
-    "Temperatura_L4_3",
-    "Temperatura_L5_1",
-    "Temperatura_L5_2",
-    "Temperatura_L5_3",
-  ];
-
-  // Función para obtener estadísticas de todos los sensores
-  const fetchAllSensorsStats = useCallback(async () => {
+  // Función para obtener datos de comparación de ambas fachadas
+  const fetchComparisonData = useCallback(async () => {
     if (!isMountedRef.current) return;
 
     setLoading(true);
     try {
       console.log(
-        `📊 [${new Date().toLocaleTimeString()}] Fetching stats for ${temperatureSensors.length} sensors for facade ${id}...`
+        `📊 [${new Date().toLocaleTimeString()}] Fetching comparison data from both facades...`
       );
 
-      const promises = temperatureSensors.map(async sensorId => {
-        try {
-          const url = `http://127.0.0.1:8000/api/analytics/stats/${sensorId}/${id}?hours=24`;
-          console.log(`🔍 Fetching: ${url}`);
+      // Llamar a ambos endpoints en paralelo
+      const url1 = `http://localhost:8000/analytics/compare/1`;
+      const url2 = `http://localhost:8000/analytics/compare/2`;
+      console.log(`🔍 Fetching from: ${url1} and ${url2}`);
 
-          const response = await fetch(url);
+      const [response1, response2] = await Promise.all([
+        fetch(url1),
+        fetch(url2)
+      ]);
 
-          if (!response.ok) {
-            console.warn(
-              `⚠️ Failed to fetch stats for ${sensorId}: ${response.status} ${response.statusText}`
-            );
-            return null;
-          }
+      if (!response1.ok) {
+        throw new Error(`HTTP ${response1.status} from facade 1: ${response1.statusText}`);
+      }
+      if (!response2.ok) {
+        throw new Error(`HTTP ${response2.status} from facade 2: ${response2.statusText}`);
+      }
 
-          const data = await response.json();
-          console.log(
-            `✅ ${sensorId}: ${data.total_readings} readings, mean: ${data.mean_value?.toFixed(1)}°C`
-          );
+      const [data1, data2] = await Promise.all([
+        response1.json(),
+        response2.json()
+      ]);
+      console.log(`Facade 1 API response:`, data1);
+      console.log(`Facade 2 API response:`, data2);
 
-          return {
-            sensor_id: sensorId,
-            ...data,
-          };
-        } catch (error) {
-          console.error(`💥 Error fetching ${sensorId}:`, error);
-          return null;
-        }
-      });
+      // Extraer datos de no_refrigerada (facade 1) y refrigerada (facade 2)
+      const noRefrigeradaData = data1.comparison?.no_refrigerada || [];
+      const refrigeradaData = data2.comparison?.refrigerada || [];
 
-      const results = await Promise.all(promises);
-      const validResults = results.filter(result => result !== null) as SensorStats[];
+      // Filtrar solo sensores de temperatura
+      const tempRefrigerada = refrigeradaData.filter((s: SensorStats) => 
+        s.sensor_name.startsWith('Temperature_M')
+      );
+      const tempNoRefrigerada = noRefrigeradaData.filter((s: SensorStats) => 
+        s.sensor_name.startsWith('Temperature_M')
+      );
 
       console.log(
-        `✅ [${new Date().toLocaleTimeString()}] Successfully fetched stats for ${validResults.length}/${temperatureSensors.length} sensors`
+        `Processed data - Refrigerada: ${tempRefrigerada.length} sensors, No Refrigerada: ${tempNoRefrigerada.length} sensors`
       );
 
-      if (validResults.length > 0 && isMountedRef.current) {
-        console.log(`📊 Sample data:`, validResults[0]);
-        console.log(
-          `🔄 Updating state with ${validResults.length} sensors at ${new Date().toLocaleTimeString()}`
-        );
-
-        setSensorsStats(validResults);
+      if (isMountedRef.current) {
+        setRefrigeradaStats(tempRefrigerada);
+        setNoRefrigeradaStats(tempNoRefrigerada);
         setLastUpdate(new Date().toLocaleString());
-      } else {
-        console.error(`❌ No valid sensor data received!`);
       }
     } catch (error) {
-      console.error("💥 Error fetching sensors stats:", error);
+      console.error("Error fetching comparison data:", error);
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
       }
     }
-  }, [id]);
+  }, []);
 
   // Cargar datos una sola vez al montar el componente
   useEffect(() => {
-    console.log(`🚀 Component mounted - Loading data for facade ${id}`);
+    console.log(`Component mounted - Loading comparison data`);
     isMountedRef.current = true;
-    fetchAllSensorsStats();
+    fetchComparisonData();
 
     return () => {
       isMountedRef.current = false;
     };
-  }, [fetchAllSensorsStats]);
+  }, [fetchComparisonData]);
 
-  // Debug - observar cambios en sensorsStats
+  // Debug - observar cambios en los stats
   useEffect(() => {
-    console.log(`🔄 sensorsStats state updated - Count: ${sensorsStats.length}`);
-    if (sensorsStats.length > 0) {
-      console.log(
-        `📋 Current sensors:`,
-        sensorsStats.map(s => s.sensor_id)
-      );
-      console.log(
-        `🌡️ Average temperature: ${(sensorsStats.reduce((sum, s) => sum + s.mean_value, 0) / sensorsStats.length).toFixed(1)}°C`
-      );
+    console.log(`🔄 Stats updated - Refrigerada: ${refrigeradaStats.length}, No Refrigerada: ${noRefrigeradaStats.length}`);
+    if (refrigeradaStats.length > 0 || noRefrigeradaStats.length > 0) {
+      console.log(`Refrigerada sensors:`, refrigeradaStats.map(s => s.sensor_name));
+      console.log(`No Refrigerada sensors:`, noRefrigeradaStats.map(s => s.sensor_name));
     }
-  }, [sensorsStats]);
+  }, [refrigeradaStats, noRefrigeradaStats]);
 
-  // Preparar datos para gráficas
+  // Combinar ambos conjuntos de datos para análisis
+  const allSensors = [...refrigeradaStats, ...noRefrigeradaStats];
+
+  // Preparar datos por módulo para comparación
   const getModuleData = () => {
-    const modules = [
-      { name: "L1", sensors: sensorsStats.filter(s => s.sensor_id.includes("L1_")) },
-      { name: "L2", sensors: sensorsStats.filter(s => s.sensor_id.includes("L2_")) },
-      { name: "L3", sensors: sensorsStats.filter(s => s.sensor_id.includes("L3_")) },
-      { name: "L4", sensors: sensorsStats.filter(s => s.sensor_id.includes("L4_")) },
-      { name: "L5", sensors: sensorsStats.filter(s => s.sensor_id.includes("L5_")) },
-    ];
-
-    return modules.map(module => ({
-      name: module.name,
-      mean:
-        module.sensors.length > 0
-          ? module.sensors.reduce((sum, s) => sum + s.mean_value, 0) /
-            module.sensors.length
+    const modules = ["M1", "M2", "M3", "M4", "M5"];
+    
+    return modules.map(moduleName => {
+      const refSensors = refrigeradaStats.filter(s => s.sensor_name.includes(`_${moduleName}_`));
+      const noRefSensors = noRefrigeradaStats.filter(s => s.sensor_name.includes(`_${moduleName}_`));
+      
+      return {
+        name: moduleName,
+        mean_ref: refSensors.length > 0
+          ? refSensors.reduce((sum, s) => sum + s.avg_value, 0) / refSensors.length
           : 0,
-      max:
-        module.sensors.length > 0
-          ? Math.max(...module.sensors.map(s => s.max_value))
+        mean_noref: noRefSensors.length > 0
+          ? noRefSensors.reduce((sum, s) => sum + s.avg_value, 0) / noRefSensors.length
           : 0,
-      min:
-        module.sensors.length > 0
-          ? Math.min(...module.sensors.map(s => s.min_value))
-          : 0,
-      std_dev:
-        module.sensors.length > 0
-          ? module.sensors.reduce((sum, s) => sum + s.std_dev, 0) /
-            module.sensors.length
-          : 0,
-      readings: module.sensors.reduce((sum, s) => sum + s.total_readings, 0),
-    }));
+        max_ref: refSensors.length > 0 ? Math.max(...refSensors.map(s => s.max_value)) : 0,
+        max_noref: noRefSensors.length > 0 ? Math.max(...noRefSensors.map(s => s.max_value)) : 0,
+        min_ref: refSensors.length > 0 ? Math.min(...refSensors.map(s => s.min_value)) : 0,
+        min_noref: noRefSensors.length > 0 ? Math.min(...noRefSensors.map(s => s.min_value)) : 0,
+        count_ref: refSensors.reduce((sum, s) => sum + s.count, 0),
+        count_noref: noRefSensors.reduce((sum, s) => sum + s.count, 0),
+      };
+    });
   };
 
   const moduleData = getModuleData();
-  const overallStats =
-    sensorsStats.length > 0
-      ? {
-          meanTemp:
-            sensorsStats.reduce((sum, s) => sum + s.mean_value, 0) /
-            sensorsStats.length,
-          maxTemp: Math.max(...sensorsStats.map(s => s.max_value)),
-          minTemp: Math.min(...sensorsStats.map(s => s.min_value)),
-          totalReadings: sensorsStats.reduce((sum, s) => sum + s.total_readings, 0),
-          avgStdDev:
-            sensorsStats.reduce((sum, s) => sum + s.std_dev, 0) / sensorsStats.length,
-          timestamp: lastUpdate, // Agregar timestamp para forzar updates
-        }
-      : null;
+  
+  const overallStats = allSensors.length > 0
+    ? {
+        meanTemp_ref: refrigeradaStats.length > 0
+          ? refrigeradaStats.reduce((sum, s) => sum + s.avg_value, 0) / refrigeradaStats.length
+          : 0,
+        meanTemp_noref: noRefrigeradaStats.length > 0
+          ? noRefrigeradaStats.reduce((sum, s) => sum + s.avg_value, 0) / noRefrigeradaStats.length
+          : 0,
+        maxTemp_ref: refrigeradaStats.length > 0 ? Math.max(...refrigeradaStats.map(s => s.max_value)) : 0,
+        maxTemp_noref: noRefrigeradaStats.length > 0 ? Math.max(...noRefrigeradaStats.map(s => s.max_value)) : 0,
+        minTemp_ref: refrigeradaStats.length > 0 ? Math.min(...refrigeradaStats.map(s => s.min_value)) : 0,
+        minTemp_noref: noRefrigeradaStats.length > 0 ? Math.min(...noRefrigeradaStats.map(s => s.min_value)) : 0,
+        totalReadings_ref: refrigeradaStats.reduce((sum, s) => sum + s.count, 0),
+        totalReadings_noref: noRefrigeradaStats.reduce((sum, s) => sum + s.count, 0),
+        timestamp: lastUpdate,
+      }
+    : null;
 
-  // Gráfica de líneas - Temperatura promedio por módulo
+  // Gráfica de líneas - Comparación entre fachadas
   const lineChartData = {
     labels: moduleData.map(m => `Módulo ${m.name}`),
     datasets: [
       {
-        label: "Temperatura Promedio",
-        data: moduleData.map(m => m.mean),
-        borderColor: "#214B4E",
-        backgroundColor: "rgba(33, 75, 78, 0.1)",
+        label: "Refrigerada - Promedio",
+        data: moduleData.map(m => m.mean_ref),
+        borderColor: "#2196f3",
+        backgroundColor: "rgba(33, 150, 243, 0.1)",
         fill: true,
         tension: 0.4,
         pointRadius: 6,
-        pointBackgroundColor: "#214B4E",
+        pointBackgroundColor: "#2196f3",
         pointBorderWidth: 3,
         pointBorderColor: "#fff",
         pointHoverRadius: 8,
       },
       {
-        label: "Temperatura Máxima",
-        data: moduleData.map(m => m.max),
+        label: "No Refrigerada - Promedio",
+        data: moduleData.map(m => m.mean_noref),
         borderColor: "#e63946",
         backgroundColor: "rgba(230, 57, 70, 0.1)",
-        fill: false,
+        fill: true,
         tension: 0.4,
-        pointRadius: 4,
+        pointRadius: 6,
         pointBackgroundColor: "#e63946",
-        borderDash: [5, 5],
-      },
-      {
-        label: "Temperatura Mínima",
-        data: moduleData.map(m => m.min),
-        borderColor: "#2196f3",
-        backgroundColor: "rgba(33, 150, 243, 0.1)",
-        fill: false,
-        tension: 0.4,
-        pointRadius: 4,
-        pointBackgroundColor: "#2196f3",
-        borderDash: [5, 5],
+        pointBorderWidth: 3,
+        pointBorderColor: "#fff",
+        pointHoverRadius: 8,
       },
     ],
   };
@@ -272,7 +231,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
       },
       title: {
         display: true,
-        text: "Análisis Térmico por Módulo - Panel Refrigerado",
+        text: "Comparación Térmica: Refrigerada vs No Refrigerada",
         font: { size: 18, weight: "bold" as const },
         padding: { bottom: 30 },
       },
@@ -298,15 +257,16 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
     },
   };
 
-  // Gráfica de barras - Desviación estándar
+  // Gráfica de barras - Diferencia de temperatura entre fachadas
   const barChartData = {
     labels: moduleData.map(m => `Módulo ${m.name}`),
     datasets: [
       {
-        label: "Desviación Estándar (°C)",
-        data: moduleData.map(m => m.std_dev),
-        backgroundColor: moduleData.map(m =>
-          m.std_dev > 3 ? "#e63946" : m.std_dev > 2 ? "#ff9800" : "#4caf50"
+        label: "Diferencia de Temperatura (No Ref - Ref)",
+        data: moduleData.map(m => m.mean_noref - m.mean_ref),
+        backgroundColor: moduleData.map(m => 
+          (m.mean_noref - m.mean_ref) > 3 ? "#e63946" : 
+          (m.mean_noref - m.mean_ref) > 1 ? "#ff9800" : "#4caf50"
         ),
         borderColor: "#214B4E",
         borderWidth: 2,
@@ -322,7 +282,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
       legend: { display: false },
       title: {
         display: true,
-        text: "Variabilidad Térmica por Módulo",
+        text: "Diferencia Térmica por Módulo (°C)",
         font: { size: 18, weight: "bold" as const },
         padding: { bottom: 30 },
       },
@@ -332,27 +292,38 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
         beginAtZero: true,
         title: {
           display: true,
-          text: "Desviación Estándar (°C)",
+          text: "Diferencia de Temperatura (°C)",
           font: { size: 14, weight: "bold" as const },
         },
       },
     },
   };
 
-  // Scatter plot - Distribución de sensores
+  // Scatter plot - Distribución de sensores de ambas fachadas
   const scatterData = {
     datasets: [
       {
-        label: "Sensores de Temperatura",
-        data: sensorsStats.map(sensor => ({
-          x: sensor.mean_value,
-          y: sensor.std_dev,
-          sensorId: sensor.sensor_id,
+        label: "Refrigerada",
+        data: refrigeradaStats.map(sensor => ({
+          x: sensor.avg_value,
+          y: sensor.max_value - sensor.min_value,
+          sensorId: sensor.sensor_name,
         })),
-        backgroundColor: sensorsStats.map(sensor =>
-          sensor.std_dev > 3 ? "#e63946" : sensor.std_dev > 2 ? "#ff9800" : "#4caf50"
-        ),
-        borderColor: "#214B4E",
+        backgroundColor: "#2196f3",
+        borderColor: "#1976d2",
+        borderWidth: 2,
+        pointRadius: 8,
+        pointHoverRadius: 12,
+      },
+      {
+        label: "No Refrigerada",
+        data: noRefrigeradaStats.map(sensor => ({
+          x: sensor.avg_value,
+          y: sensor.max_value - sensor.min_value,
+          sensorId: sensor.sensor_name,
+        })),
+        backgroundColor: "#e63946",
+        borderColor: "#c62828",
         borderWidth: 2,
         pointRadius: 8,
         pointHoverRadius: 12,
@@ -363,17 +334,17 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
   const scatterOptions = {
     responsive: true,
     plugins: {
-      legend: { display: false },
+      legend: { display: true, position: "top" as const },
       title: {
         display: true,
-        text: "Dispersión: Temperatura Media vs Variabilidad",
+        text: "Dispersión: Temperatura Media vs Rango Térmico",
         font: { size: 18, weight: "bold" as const },
         padding: { bottom: 30 },
       },
       tooltip: {
         callbacks: {
           label: function (context: any) {
-            return `${context.raw.sensorId}: ${context.parsed.x.toFixed(1)}°C, σ=${context.parsed.y.toFixed(2)}`;
+            return `${context.raw.sensorId}: ${context.parsed.x.toFixed(1)}°C, Rango=${context.parsed.y.toFixed(1)}°C`;
           },
         },
       },
@@ -389,7 +360,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
       y: {
         title: {
           display: true,
-          text: "Desviación Estándar (°C)",
+          text: "Rango Térmico (Max - Min, °C)",
           font: { size: 14, weight: "bold" as const },
         },
       },
@@ -428,7 +399,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
           </button>
 
           <button
-            onClick={fetchAllSensorsStats}
+            onClick={fetchComparisonData}
             disabled={loading}
             style={{
               backgroundColor: loading ? "#6c757d" : "#28a745",
@@ -461,7 +432,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
             }}
           >
             <Thermometer size={32} color="#214B4E" />
-            Análisis Térmico Avanzado - Panel Refrigerado
+            Comparación Térmica: Refrigerada vs No Refrigerada
           </h1>
           {lastUpdate && (
             <p style={{ margin: "0.5rem 0 0 0", color: "#6c757d", fontSize: "14px" }}>
@@ -476,7 +447,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
               fontWeight: loading ? "600" : "normal",
             }}
           >
-            Sensores cargados: {sensorsStats.length}/15 | Fachada: {id}
+            Sensores cargados: Ref={refrigeradaStats.length} | No Ref={noRefrigeradaStats.length}
             {loading && " | CARGANDO..."}
           </p>
         </div>
@@ -520,7 +491,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                   fontWeight: "600",
                 }}
               >
-                TEMP. PROMEDIO
+                TEMP. PROM. REFRIGERADA
               </h3>
             </div>
             <p
@@ -528,15 +499,15 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                 margin: 0,
                 fontSize: "2rem",
                 fontWeight: "bold",
-                color: "#214B4E",
+                color: "#2196f3",
               }}
             >
-              {overallStats.meanTemp.toFixed(1)}°C
+              {overallStats.meanTemp_ref.toFixed(1)}°C
             </p>
           </div>
 
           <div
-            key={`temp-max-${lastUpdate}`}
+            key={`temp-noref-${lastUpdate}`}
             style={{
               backgroundColor: "white",
               padding: "1.5rem",
@@ -553,7 +524,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                 marginBottom: "0.5rem",
               }}
             >
-              <TrendingUp size={24} color="#e63946" />
+              <BarChart3 size={24} color="#e63946" />
               <h3
                 style={{
                   margin: 0,
@@ -562,7 +533,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                   fontWeight: "600",
                 }}
               >
-                TEMP. MÁXIMA
+                TEMP. PROM. NO REFRIGERADA
               </h3>
             </div>
             <p
@@ -573,12 +544,54 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                 color: "#e63946",
               }}
             >
-              {overallStats.maxTemp.toFixed(1)}°C
+              {overallStats.meanTemp_noref.toFixed(1)}°C
             </p>
           </div>
 
           <div
-            key={`temp-min-${lastUpdate}`}
+            key={`temp-diff-${lastUpdate}`}
+            style={{
+              backgroundColor: "white",
+              padding: "1.5rem",
+              borderRadius: "12px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #e9ecef",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                marginBottom: "0.5rem",
+              }}
+            >
+              <TrendingUp size={24} color="#28a745" />
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "14px",
+                  color: "#6c757d",
+                  fontWeight: "600",
+                }}
+              >
+                DIFERENCIA TÉRMICA
+              </h3>
+            </div>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "2rem",
+                fontWeight: "bold",
+                color: "#28a745",
+              }}
+            >
+              {(overallStats.meanTemp_noref - overallStats.meanTemp_ref).toFixed(1)}°C
+            </p>
+          </div>
+
+          <div
+            key={`readings-ref-${lastUpdate}`}
             style={{
               backgroundColor: "white",
               padding: "1.5rem",
@@ -604,7 +617,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                   fontWeight: "600",
                 }}
               >
-                TEMP. MÍNIMA
+                LECTURAS REFRIGERADA
               </h3>
             </div>
             <p
@@ -615,12 +628,12 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                 color: "#2196f3",
               }}
             >
-              {overallStats.minTemp.toFixed(1)}°C
+              {overallStats.totalReadings_ref.toLocaleString()}
             </p>
           </div>
 
           <div
-            key={`variability-${lastUpdate}`}
+            key={`readings-noref-${lastUpdate}`}
             style={{
               backgroundColor: "white",
               padding: "1.5rem",
@@ -637,7 +650,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                 marginBottom: "0.5rem",
               }}
             >
-              <Target size={24} color="#28a745" />
+              <AlertTriangle size={24} color="#e63946" />
               <h3
                 style={{
                   margin: 0,
@@ -646,7 +659,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                   fontWeight: "600",
                 }}
               >
-                VARIABILIDAD
+                LECTURAS NO REFRIGERADA
               </h3>
             </div>
             <p
@@ -654,52 +667,10 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                 margin: 0,
                 fontSize: "2rem",
                 fontWeight: "bold",
-                color: "#28a745",
+                color: "#e63946",
               }}
             >
-              ±{overallStats.avgStdDev.toFixed(1)}°C
-            </p>
-          </div>
-
-          <div
-            key={`readings-${lastUpdate}`}
-            style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <AlertTriangle size={24} color="#ff9800" />
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  color: "#6c757d",
-                  fontWeight: "600",
-                }}
-              >
-                TOTAL LECTURAS
-              </h3>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "2rem",
-                fontWeight: "bold",
-                color: "#ff9800",
-              }}
-            >
-              {overallStats.totalReadings.toLocaleString()}
+              {overallStats.totalReadings_noref.toLocaleString()}
             </p>
           </div>
         </div>
@@ -774,7 +745,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
       </div>
 
       {/* Tabla de datos detallados */}
-      {sensorsStats.length > 0 && (
+      {allSensors.length > 0 && (
         <div
           key={`table-container-${lastUpdate}`}
           style={{
@@ -793,7 +764,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
               color: "#2c3e50",
             }}
           >
-            Datos Detallados por Sensor (Últimas 24 horas) - Cargado: {lastUpdate}
+            Datos Detallados de Comparación - Cargado: {lastUpdate}
           </h3>
 
           <div style={{ overflowX: "auto" }}>
@@ -825,6 +796,16 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                       fontWeight: "600",
                     }}
                   >
+                    Tipo Fachada
+                  </th>
+                  <th
+                    style={{
+                      padding: "12px",
+                      textAlign: "center",
+                      borderBottom: "2px solid #dee2e6",
+                      fontWeight: "600",
+                    }}
+                  >
                     Lecturas
                   </th>
                   <th
@@ -835,27 +816,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                       fontWeight: "600",
                     }}
                   >
-                    Media
-                  </th>
-                  <th
-                    style={{
-                      padding: "12px",
-                      textAlign: "center",
-                      borderBottom: "2px solid #dee2e6",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Mediana
-                  </th>
-                  <th
-                    style={{
-                      padding: "12px",
-                      textAlign: "center",
-                      borderBottom: "2px solid #dee2e6",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Desv. Std
+                    Temp. Media
                   </th>
                   <th
                     style={{
@@ -867,22 +828,12 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                   >
                     Min / Max
                   </th>
-                  <th
-                    style={{
-                      padding: "12px",
-                      textAlign: "center",
-                      borderBottom: "2px solid #dee2e6",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Q25 / Q75
-                  </th>
                 </tr>
               </thead>
               <tbody key={`tbody-${lastUpdate}`}>
-                {sensorsStats.map((sensor, index) => (
+                {allSensors.map((sensor, index) => (
                   <tr
-                    key={`${sensor.sensor_id}-${lastUpdate}-${index}`}
+                    key={`${sensor.sensor_name}-${sensor.facade_type}-${index}`}
                     style={{
                       backgroundColor: index % 2 === 0 ? "#fff" : "#f8f9fa",
                       borderBottom: "1px solid #dee2e6",
@@ -891,10 +842,24 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                     <td
                       style={{ padding: "12px", fontWeight: "600", color: "#214B4E" }}
                     >
-                      {sensor.sensor_id.replace("Temperatura_", "")}
+                      {sensor.sensor_name.replace("Temperature_", "")}
                     </td>
                     <td style={{ padding: "12px", textAlign: "center" }}>
-                      {sensor.total_readings.toLocaleString()}
+                      <span
+                        style={{
+                          padding: "4px 12px",
+                          borderRadius: "12px",
+                          backgroundColor: sensor.facade_type === "refrigerada" ? "#e3f2fd" : "#ffebee",
+                          color: sensor.facade_type === "refrigerada" ? "#2196f3" : "#e63946",
+                          fontWeight: "600",
+                          fontSize: "12px",
+                        }}
+                      >
+                        {sensor.facade_type === "refrigerada" ? "REF" : "NO REF"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px", textAlign: "center" }}>
+                      {sensor.count.toLocaleString()}
                     </td>
                     <td
                       style={{
@@ -903,25 +868,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                         fontWeight: "600",
                       }}
                     >
-                      {sensor.mean_value.toFixed(1)}°C
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center" }}>
-                      {sensor.median.toFixed(1)}°C
-                    </td>
-                    <td
-                      style={{
-                        padding: "12px",
-                        textAlign: "center",
-                        color:
-                          sensor.std_dev > 3
-                            ? "#e63946"
-                            : sensor.std_dev > 2
-                              ? "#ff9800"
-                              : "#28a745",
-                        fontWeight: "600",
-                      }}
-                    >
-                      ±{sensor.std_dev.toFixed(2)}
+                      {sensor.avg_value.toFixed(1)}°C
                     </td>
                     <td style={{ padding: "12px", textAlign: "center" }}>
                       <span style={{ color: "#2196f3" }}>
@@ -932,11 +879,6 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
                         {sensor.max_value.toFixed(1)}
                       </span>
                     </td>
-                    <td style={{ padding: "12px", textAlign: "center" }}>
-                      <span style={{ color: "#6c757d" }}>{sensor.q25.toFixed(1)}</span>
-                      {" / "}
-                      <span style={{ color: "#6c757d" }}>{sensor.q75.toFixed(1)}</span>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -946,7 +888,7 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
       )}
 
       {/* Estado de carga */}
-      {loading && sensorsStats.length === 0 && (
+      {loading && allSensors.length === 0 && (
         <div
           style={{
             backgroundColor: "white",
@@ -958,10 +900,10 @@ export default function ComparisonChart({ onBack, id = "1" }: ComparisonChartPro
         >
           <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔄</div>
           <h3 style={{ color: "#6c757d", margin: 0 }}>
-            Cargando datos de análisis térmico...
+            Cargando datos de comparación térmica...
           </h3>
           <p style={{ color: "#6c757d", margin: "0.5rem 0 0 0" }}>
-            Obteniendo estadísticas de {temperatureSensors.length} sensores
+            Obteniendo datos de ambas fachadas
           </p>
         </div>
       )}

@@ -31,7 +31,7 @@ export default function RealtimeDashboard({
     setError(null);
 
     try {
-      const url = `http://127.0.0.1:8000/api/dashboard/realtime/${facadeId}`;
+      const url = `http://localhost:8000/realtime/facades/${facadeId}`;
       console.log(`🚀 Fetching realtime data from: ${url}`);
 
       const response = await fetch(url);
@@ -51,25 +51,35 @@ export default function RealtimeDashboard({
       const responseData = await response.json();
       console.log(`✅ Raw response data:`, responseData);
       console.log(`📊 Data type:`, typeof responseData);
-      console.log(`📊 Is array:`, Array.isArray(responseData));
-      console.log(
-        `📊 Data length:`,
-        Array.isArray(responseData) ? responseData.length : "N/A"
-      );
 
-      if (Array.isArray(responseData)) {
-        setData(responseData);
-        setLastUpdate(new Date().toLocaleString());
+      // La respuesta tiene estructura: { facade_id, facade_type, data: {...} }
+      const sensorData = responseData.data || {};
+      
+      // Convertir el objeto de sensores a array
+      const sensorsArray = Object.entries(sensorData).map(([sensorName, sensorInfo]: [string, any]) => ({
+        sensor_id: sensorName,
+        sensor_name: sensorName,
+        value: sensorInfo.value,
+        ts: sensorInfo.ts,
+        device_id: sensorInfo.device_id,
+        facade_type: sensorInfo.facade_type,
+        sensor_type: sensorName.startsWith('Temperature_') ? 'temperature' : 'other',
+        unit: sensorName.startsWith('Temperature_') ? '°C' : 
+              sensorName === 'Humedad' ? '%' :
+              sensorName === 'Irradiancia' ? 'W/m²' :
+              sensorName === 'Velocidad_Viento' ? 'm/s' : '',
+        last_update: sensorInfo.ts
+      }));
 
-        if (responseData.length === 0) {
-          console.warn("⚠️ Received empty array from API");
-        } else {
-          console.log(`✅ Successfully loaded ${responseData.length} sensors`);
-          console.log(`📋 Sample sensor:`, responseData[0]);
-        }
+      console.log(`✅ Converted to array with ${sensorsArray.length} sensors`);
+      setData(sensorsArray);
+      setLastUpdate(new Date().toLocaleString());
+
+      if (sensorsArray.length === 0) {
+        console.warn("⚠️ No sensor data available");
       } else {
-        console.warn("⚠️ Response is not an array:", responseData);
-        setData([]);
+        console.log(`✅ Successfully loaded ${sensorsArray.length} sensors`);
+        console.log(`📋 Sample sensor:`, sensorsArray[0]);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -229,7 +239,7 @@ export default function RealtimeDashboard({
       >
         <strong>Debug Info:</strong>
         <br />
-        URL: http://127.0.0.1:8000/api/dashboard/realtime/{facadeId}
+        URL: http://localhost:8000/realtime/facades/{facadeId}
         <br />
         Estado:{" "}
         {loading ? "Cargando" : error ? `Error: ${error}` : `OK (${data.length} items)`}
@@ -271,7 +281,7 @@ export default function RealtimeDashboard({
           <p style={{ fontSize: "12px", color: "#888" }}>
             Verifica que:
             <br />
-            • La API esté ejecutándose en http://127.0.0.1:8000
+            • La API esté ejecutándose en http://localhost:8000
             <br />
             • Existan datos en la base de datos para esta fachada
             <br />• La fachada ID sea correcta
