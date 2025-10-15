@@ -21,18 +21,21 @@ ChartJS.register(
   Legend
 );
 
-interface ExchangerData {
-  timestamp: string;
-  inlet_temp: number;
-  outlet_temp: number;
+interface ExchangerDataPoint {
+  ts: string;
+  value: number;
 }
 
 export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number }) {
-  const [temps, setTemps] = useState<ExchangerData[]>([]);
+  const [temps, setTemps] = useState<ExchangerDataPoint[]>([]); // ya no se usa para gráficas; lo dejamos por compatibilidad
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const isMountedRef = useRef(true);
+
+  // Datos crudos por serie
+  const [inletReadings, setInletReadings] = useState<ExchangerDataPoint[]>([]);
+  const [outletReadings, setOutletReadings] = useState<ExchangerDataPoint[]>([]);
 
   const fetchWaterTemps = useCallback(async () => {
     if (!isMountedRef.current) return;
@@ -40,7 +43,25 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
     setError(null);
 
     try {
-      const url = `http://localhost:8000/temperatures/exchanger/${facadeId}?limit=200`;
+      // Si quieres usar la fachada seleccionada en vez de buscar una refrigerada, cambia esta parte.
+      // Aquí buscamos la primera fachada refrigerada (igual que tenías).
+      const facadesUrl = `http://localhost:8000/facades`;
+      console.log(`🔍 Fetching facades list from: ${facadesUrl}`);
+
+      const facadesResponse = await fetch(facadesUrl);
+      if (!facadesResponse.ok) {
+        throw new Error(`Error fetching facades: ${facadesResponse.statusText}`);
+      }
+
+      const facadesJson = await facadesResponse.json();
+      const facades = facadesJson.facades || [];
+      const refrigerated = facades.find((f: any) => f.facade_type === "refrigerada");
+
+      if (!refrigerated) {
+        throw new Error("No se encontró ninguna fachada refrigerada");
+      }
+
+      const url = `http://localhost:8000/temperatures/exchanger/${refrigerated.facade_id}?limit=100`;
       console.log(`💧 Fetching exchanger temperatures from: ${url}`);
 
       const response = await fetch(url);
@@ -53,15 +74,29 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
       const json = await response.json();
       console.log("✅ Raw exchanger response:", json);
 
-      const data = json.exchanger_data || [];
-      if (Array.isArray(data) && data.length > 0) {
-        if (isMountedRef.current) {
-          setTemps(data);
-          setLastUpdate(new Date().toLocaleString());
-        }
-      } else {
-        if (isMountedRef.current) setTemps([]);
-        console.warn("⚠️ exchanger_data is empty");
+      // Ajuste: la estructura puede variar; adaptamos según lo que devolviste antes
+      const inlet = json.exchanger_data?.inlet?.readings || [];
+      const outlet = json.exchanger_data?.outlet?.readings || [];
+
+      // Normalizar a estructura { ts, value }
+      const inletNormalized: ExchangerDataPoint[] = inlet.map((r: any) => ({
+        ts: r.ts,
+        value: Number(r.value),
+      }));
+      const outletNormalized: ExchangerDataPoint[] = outlet.map((r: any) => ({
+        ts: r.ts,
+        value: Number(r.value),
+      }));
+
+      console.log("inletNormalized length:", inletNormalized.length, "outletNormalized length:", outletNormalized.length);
+
+      if (isMountedRef.current) {
+        setInletReadings(inletNormalized);
+        setOutletReadings(outletNormalized);
+
+        // opcional: dejar temps combinados por compatibilidad
+        setTemps(inletNormalized);
+        setLastUpdate(new Date().toLocaleString());
       }
     } catch (err) {
       console.error("💥 Error fetching exchanger temperatures:", err);
@@ -79,24 +114,54 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
     };
   }, [fetchWaterTemps]);
 
+  // Construir unión de timestamps y datasets alineados
+  const { labels, inletSeries, outletSeries } = (() => {
+    // union de timestamps
+    const tsSet = new Set<string>();
+    inletReadings.forEach((r) => tsSet.add(r.ts));
+    outletReadings.forEach((r) => tsSet.add(r.ts));
+
+    const labelsArr = Array.from(tsSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+    // crear un map para lookup
+    const inletMap = new Map(inletReadings.map((r) => [r.ts, r.value]));
+    const outletMap = new Map(outletReadings.map((r) => [r.ts, r.value]));
+
+    const inletData = labelsArr.map((ts) => (inletMap.has(ts) ? inletMap.get(ts)! : null));
+    const outletData = labelsArr.map((ts) => (outletMap.has(ts) ? outletMap.get(ts)! : null));
+
+    // Formatear labels a hora legible (o deja la fecha completa si prefieres)
+    const labelsFormatted = labelsArr.map((ts) => {
+      try {
+        return new Date(ts).toLocaleTimeString();
+      } catch {
+        return ts;
+      }
+    });
+
+    return { labels: labelsFormatted, inletSeries: inletData, outletSeries: outletData };
+  })();
+
   const chartData = {
-    labels: temps.map((t) => new Date(t.timestamp).toLocaleTimeString()),
+    labels,
     datasets: [
       {
         label: "Temperatura Entrada (°C)",
-        data: temps.map((t) => t.inlet_temp),
+        data: inletSeries,
         borderColor: "#2196f3",
         backgroundColor: "rgba(33,150,243,0.1)",
         tension: 0.3,
         fill: true,
+        spanGaps: true, // intenta unir pequeños gaps
       },
       {
         label: "Temperatura Salida (°C)",
-        data: temps.map((t) => t.outlet_temp),
+        data: outletSeries,
         borderColor: "#ff9800",
         backgroundColor: "rgba(255,152,0,0.1)",
         tension: 0.3,
         fill: true,
+        spanGaps: true,
       },
     ],
   };
@@ -110,6 +175,15 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
         text: "Temperaturas del Agua — Intercambiador",
         font: { size: 18, weight: "bold" as const },
       },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
+      }
+    },
+    interaction: {
+      mode: 'nearest' as const,
+      axis: 'x' as const,
+      intersect: false,
     },
     scales: {
       y: {
@@ -174,7 +248,7 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
         </div>
       )}
 
-      {!loading && !error && temps.length === 0 && (
+      {!loading && !error && labels.length === 0 && (
         <div
           style={{
             backgroundColor: "white",
@@ -188,7 +262,7 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
         </div>
       )}
 
-      {temps.length > 0 && (
+      {labels.length > 0 && (
         <div
           style={{
             backgroundColor: "white",

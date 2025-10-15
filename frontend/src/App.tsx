@@ -9,7 +9,6 @@ import ComparisonChart from "./components/ComparisonChart";
 import AlertsHistory from "./views/AlertsHistory";
 import TemperatureComparison from "./views/TemperatureComparison";
 import RefrigerantCycle from "./views/RefrigerantCycle";
-import PerformanceComparison from "./views/PerformanceComparison";
 import AlertNotifications from "./views/AlertNotifications";
 import WaterTemperatures from "./views/WaterTemperatures";
 import ExportCSV from "./views/ExportCSV";
@@ -39,7 +38,6 @@ export default function App() {
   const [showTempComparison, setShowTempComparison] = useState(false);
   const [showRefrigerantCycle, setShowRefrigerantCycle] = useState(false);
   const [showWaterTemps, setShowWaterTemps] = useState(false);
-  const [showPerformance, setShowPerformance] = useState(false);
 
   // Datos de prueba (puedes moverlos a un contexto o fetch real)
   const panelsData: PanelData[] = [
@@ -69,7 +67,6 @@ export default function App() {
     setShowTempComparison(false);
     setShowRefrigerantCycle(false);
     setShowWaterTemps(false);
-    setShowPerformance(false);
   };
 
   const handlePanelClick = (panel: PanelData) => {
@@ -128,10 +125,6 @@ export default function App() {
     setShowWaterTemps(true);
   };
 
-  const handlePerformanceClick = () => {
-    resetViews();
-    setShowPerformance(true);
-  };
 
   return (
     <div className="app-root">
@@ -144,7 +137,6 @@ export default function App() {
         onTempComparisonClick={handleTempComparisonClick}
         onRefrigerantCycleClick={handleRefrigerantCycleClick}
         onWaterTempsClick={handleWaterTempsClick}
-        onPerformanceClick={handlePerformanceClick}
       />
 
       <div className="content">
@@ -165,9 +157,6 @@ export default function App() {
 
         {/* ✅ HU12 - Temperatura del agua en el intercambiador */}
         {showWaterTemps && <WaterTemperatures />}
-
-        {/* ✅ HU17 - Comparar rendimiento con/sin refrigeración */}
-        {showPerformance && <PerformanceComparison />}
 
         {/* Comparación térmica general existente */}
         {showComparison && <ComparisonChart onBack={handleBackToOverview} id="1" />}
@@ -206,8 +195,7 @@ export default function App() {
           !showCSVExport &&
           !showTempComparison &&
           !showRefrigerantCycle &&
-          !showWaterTemps &&
-          !showPerformance && (
+          !showWaterTemps && (
             <Home panelsData={panelsData} onPanelClick={handlePanelClick} />
           )}
       </div>

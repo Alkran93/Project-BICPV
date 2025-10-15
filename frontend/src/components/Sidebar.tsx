@@ -17,7 +17,6 @@ type SidebarProps = {
   onTempComparisonClick?: () => void;
   onRefrigerantCycleClick?: () => void;
   onWaterTempsClick?: () => void;
-  onPerformanceClick?: () => void;
 };
 
 export default function Sidebar({
@@ -28,7 +27,6 @@ export default function Sidebar({
   onTempComparisonClick,
   onRefrigerantCycleClick,
   onWaterTempsClick,
-  onPerformanceClick,
 }: SidebarProps) {
   return (
     <aside className="sidebar" aria-label="Sidebar navigation">
@@ -97,16 +95,6 @@ export default function Sidebar({
             }}
           >
             <Thermometer size={16} /> Agua In/Out Intercambiador
-          </a>
-
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              onPerformanceClick?.();
-            }}
-          >
-            <BarChart3 size={16} /> Rendimiento (Con/Sin Refrigeración)
           </a>
           
           <a

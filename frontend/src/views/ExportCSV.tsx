@@ -5,13 +5,25 @@ export default function ExportCSV({ facadeId = 1 }: { facadeId?: number }) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  // Puedes cambiar este sensor si quieres exportar otro tipo
+  const sensor = "temperature";
+
   const handleExport = async (type: "facade" | "compare") => {
     setLoading(true);
     setError(null);
     setMessage(null);
 
     try {
-      const url = `http://localhost:8000/exports/csv/${type}/${facadeId}`;
+      let url = "";
+
+      if (type === "facade") {
+        // Export normal
+        url = `http://localhost:8000/exports/csv/facade/${facadeId}`;
+      } else {
+        // Export comparativo: requiere facade_id + sensor
+        fetch (`http://localhost:8000/exports/csv/compare?facade_id=${facadeId}&sensor=${sensor}`);
+      }
+
       console.log(`⬇️ Exporting CSV from: ${url}`);
 
       const response = await fetch(url);
@@ -19,6 +31,8 @@ export default function ExportCSV({ facadeId = 1 }: { facadeId?: number }) {
       if (!response.ok) {
         if (response.status === 404)
           throw new Error("No hay datos disponibles para exportar.");
+        if (response.status === 422)
+          throw new Error("Faltan parámetros requeridos (facade_id o sensor).");
         if (response.status === 500)
           throw new Error("Error interno del servidor al generar el CSV.");
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -28,7 +42,10 @@ export default function ExportCSV({ facadeId = 1 }: { facadeId?: number }) {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
-      link.setAttribute("download", `${type}_data_fachada_${facadeId}.csv`);
+      link.setAttribute(
+        "download",
+        `${type}_data_fachada_${facadeId}_${sensor}.csv`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();

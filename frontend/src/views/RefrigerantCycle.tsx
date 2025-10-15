@@ -66,7 +66,8 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
       if (startDate) params.append("start", startDate);
       if (endDate) params.append("end", endDate);
 
-      const url = `http://localhost:8000/temperatures/refrigerant-cycle/${facadeId}?${params.toString()}`;
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      const url = `http://localhost:8000/temperatures/refrigerant-cycle/${facadeId}?${queryString}`;
       console.log(`❄️ [${new Date().toLocaleTimeString()}] Fetching refrigerant cycle from: ${url}`);
 
       const response = await fetch(url);

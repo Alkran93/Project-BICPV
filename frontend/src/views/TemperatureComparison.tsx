@@ -215,7 +215,7 @@ export default function TemperatureComparison() {
         }}
       >
         <h2 style={{ fontSize: "1.75rem", fontWeight: "bold", color: "#214B4E" }}>
-          🌡️ Comparativa de Temperaturas — Intercambiador
+          🌡️ Comparativa de Temperaturas
         </h2>
 
         <button
