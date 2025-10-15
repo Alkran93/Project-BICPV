@@ -176,6 +176,7 @@ export default function App() {
         {/* Detalle de un panel */}
         {!showSystemAnalysis && selectedPanel && !showComparison && (
           <PanelDetail
+            id={selectedPanel.id}
             title={selectedPanel.title}
             refrigerated={selectedPanel.refrigerated}
             faults={selectedPanel.faults}

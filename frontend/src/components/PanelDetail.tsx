@@ -49,7 +49,7 @@ export default function PanelDetail({
   const fetchOverviewData = async () => {
     try {
       const url = `http://localhost:8000/facades/${id}`;
-      console.log(`🌍 Fetching overview data from: ${url}`);
+      console.log(`🌍 [PanelDetail] Fetching overview data for facade ID: ${id} from: ${url}`);
 
       const response = await fetch(url);
 
@@ -84,6 +84,7 @@ export default function PanelDetail({
   const fetchSensorsList = async () => {
     try {
       const url = `http://localhost:8000/facades/${id}/sensors`;
+      console.log(`📋 [PanelDetail] Fetching sensors list for facade ID: ${id} from: ${url}`);
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -103,6 +104,7 @@ export default function PanelDetail({
     setLoading(true);
     try {
       const url = `http://localhost:8000/realtime/facades/${id}`;
+      console.log(`🔍 [PanelDetail] Fetching temperature sensors for facade ID: ${id} from: ${url}`);
       const response = await fetch(url);
 
       if (!response.ok) {
