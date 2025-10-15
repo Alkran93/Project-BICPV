@@ -26,6 +26,26 @@ ChartJS.register(
   Filler
 );
 
+// Backend response structure
+interface BackendReading {
+  ts: string;
+  value: number;
+  device_id: string;
+}
+
+interface BackendCyclePoint {
+  label: string;
+  readings: BackendReading[];
+}
+
+interface BackendResponse {
+  facade_id: string;
+  cycle_points: {
+    [sensor_name: string]: BackendCyclePoint;
+  };
+}
+
+// Frontend display structure
 interface RefrigerantCycleRecord {
   cycle_point: string;
   avg_temperature: number;
@@ -66,8 +86,8 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
       if (startDate) params.append("start", startDate);
       if (endDate) params.append("end", endDate);
 
-      const queryString = params.toString() ? `?${params.toString()}` : '';
-      const url = `http://localhost:8000/temperatures/refrigerant-cycle/${facadeId}?${queryString}`;
+      const queryString = params.toString();
+      const url = `http://localhost:8000/temperatures/refrigerant-cycle/${facadeId}${queryString ? `?${queryString}` : ''}`;
       console.log(`❄️ [${new Date().toLocaleTimeString()}] Fetching refrigerant cycle from: ${url}`);
 
       const response = await fetch(url);
@@ -79,13 +99,51 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data: RefrigerantCycleResponse = await response.json();
+      const data: BackendResponse = await response.json();
       console.log("❄️ Refrigerant Cycle API response:", data);
 
+      // Transformar datos del backend al formato del frontend
+      const refrigerationCycle: RefrigerantCycleRecord[] = [];
+
+      // Procesar cada punto del ciclo
+      for (const cyclePoint of Object.values(data.cycle_points)) {
+        const readings = cyclePoint.readings;
+        
+        if (readings && readings.length > 0) {
+          // Calcular estadísticas de las lecturas
+          const temperatures = readings.map(r => r.value).filter(v => v !== null && v !== undefined);
+          
+          if (temperatures.length > 0) {
+            const avg = temperatures.reduce((sum, t) => sum + t, 0) / temperatures.length;
+            const min = Math.min(...temperatures);
+            const max = Math.max(...temperatures);
+            const timestamps = readings.map(r => r.ts).sort();
+
+            refrigerationCycle.push({
+              cycle_point: cyclePoint.label,
+              avg_temperature: avg,
+              min_temperature: min,
+              max_temperature: max,
+              sample_count: readings.length,
+              timestamp_range: timestamps.length > 0 ? {
+                start: timestamps[0],
+                end: timestamps[timestamps.length - 1]
+              } : undefined
+            });
+          }
+        }
+      }
+
+      const transformedData: RefrigerantCycleResponse = {
+        facade_id: data.facade_id,
+        facade_type: "refrigerada", // Asumimos que si hay datos, es refrigerada
+        refrigeration_cycle: refrigerationCycle
+      };
+
       if (isMountedRef.current) {
-        setResponseData(data);
+        setResponseData(transformedData);
         setLastUpdate(new Date().toLocaleString());
-        console.log(`✅ Successfully loaded ${data.refrigeration_cycle.length} cycle points`);
+        console.log(`✅ Successfully loaded ${transformedData.refrigeration_cycle.length} cycle points`);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";

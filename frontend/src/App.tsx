@@ -153,7 +153,7 @@ export default function App() {
         {showTempComparison && <TemperatureComparison />}
 
         {/* ✅ HU10 - Temperatura del refrigerante en el ciclo */}
-        {showRefrigerantCycle && <RefrigerantCycle />}
+        {showRefrigerantCycle && <RefrigerantCycle facadeId="2" />}
 
         {/* ✅ HU12 - Temperatura del agua en el intercambiador */}
         {showWaterTemps && <WaterTemperatures />}
