@@ -42,14 +42,14 @@ export default function App() {
   // Datos de prueba (puedes moverlos a un contexto o fetch real)
   const panelsData: PanelData[] = [
     {
-      id: "refrigerated",
+      id: "2", // Fachada refrigerada en el backend
       title: "Refrigerado",
       refrigerated: true,
       faults: 0,
       sensors: [18, 25, 30, 28, 22, 35, 30, 29, 28, 30, 24, 26, 31, 32, 27],
     },
     {
-      id: "non-refrigerated",
+      id: "1", // Fachada no refrigerada en el backend
       title: "Sin Refrigerar",
       refrigerated: false,
       faults: 1,

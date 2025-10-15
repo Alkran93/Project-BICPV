@@ -39,6 +39,7 @@ export default function Home({
           {panelsData.map(panel => (
             <Panel
               key={panel.id}
+              id={panel.id}
               title={panel.title}
               refrigerated={panel.refrigerated}
               faults={panel.faults}

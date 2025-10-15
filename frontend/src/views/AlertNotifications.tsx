@@ -1,6 +1,22 @@
 import { useEffect, useState, useRef } from "react";
 import { AlertTriangle, CheckCircle, Clock, Filter } from "lucide-react";
 
+// Backend response structure
+interface BackendAnomaly {
+  facade_id: string;
+  device_id: string;
+  facade_type: string;
+  sensor_name: string;
+  value: number;
+  expected_range: {
+    min: number;
+    max: number;
+  };
+  ts: string;
+  severity: string;
+}
+
+// Frontend display structure
 interface Anomaly {
   sensor_id: string;
   anomaly_type: string;
@@ -54,13 +70,47 @@ export default function AlertNotifications() {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data: AnomaliesResponse = await response.json();
+      const data = await response.json();
       console.log("📊 Alerts API response:", data);
 
+      // Transformar los datos del backend al formato del frontend
+      const transformedAnomalies: Anomaly[] = (data.anomalies || []).map((anomaly: BackendAnomaly) => {
+        // Determinar el tipo de anomalía basado en el valor y el rango esperado
+        let anomalyType = "threshold_exceeded";
+        if (anomaly.value < anomaly.expected_range.min) {
+          anomalyType = "below_minimum";
+        } else if (anomaly.value > anomaly.expected_range.max) {
+          anomalyType = "above_maximum";
+        }
+
+        // Generar descripción clara
+        const description = `Sensor ${anomaly.sensor_name} registró ${anomaly.value.toFixed(2)}°C, ` +
+          `fuera del rango esperado (${anomaly.expected_range.min}°C - ${anomaly.expected_range.max}°C)`;
+
+        return {
+          sensor_id: anomaly.device_id,
+          anomaly_type: anomalyType,
+          severity: anomaly.severity,
+          description: description,
+          timestamp: anomaly.ts,
+          facade_id: anomaly.facade_id,
+          value: anomaly.value,
+          threshold: anomaly.value > anomaly.expected_range.max ? anomaly.expected_range.max : anomaly.expected_range.min,
+        };
+      });
+
+      const transformedData: AnomaliesResponse = {
+        count: transformedAnomalies.length,
+        facade_id: data.facade_id,
+        facade_type: data.facade_type,
+        time_range_hours: data.time_range_hours,
+        anomalies: transformedAnomalies,
+      };
+
       if (isMountedRef.current) {
-        setResponseData(data);
+        setResponseData(transformedData);
         setLastUpdate(new Date().toLocaleString());
-        console.log(`✅ Successfully loaded ${data.count} anomalies`);
+        console.log(`✅ Successfully loaded ${transformedData.count} anomalies`);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -389,10 +439,14 @@ export default function AlertNotifications() {
 
                 {anomaly.value !== undefined && (
                   <div style={{ marginBottom: "0.5rem" }}>
-                    <strong style={{ fontSize: "14px", color: colors.text }}>Valor: </strong>
-                    <span style={{ fontSize: "14px", color: colors.text }}>
-                      {anomaly.value}
-                      {anomaly.threshold !== undefined && ` (Umbral: ${anomaly.threshold})`}
+                    <strong style={{ fontSize: "14px", color: colors.text }}>Valor Medido: </strong>
+                    <span style={{ fontSize: "14px", color: colors.text, fontWeight: "600" }}>
+                      {anomaly.value.toFixed(2)}°C
+                      {anomaly.threshold !== undefined && (
+                        <span style={{ fontWeight: "normal" }}>
+                          {" "}(Umbral {anomaly.value > anomaly.threshold ? "máximo" : "mínimo"}: {anomaly.threshold.toFixed(2)}°C)
+                        </span>
+                      )}
                     </span>
                   </div>
                 )}

@@ -39,12 +39,13 @@ export default function AlertsHistory() {
     setError(null);
 
     try {
+      // Usar endpoint de anomalías que combina errores y umbrales
       const params = new URLSearchParams();
       params.append("limit", limitFilter.toString());
       if (facadeTypeFilter) params.append("facade_type", facadeTypeFilter);
       params.append("hours", hoursFilter.toString());
 
-      const url = `http://localhost:8000/alerts/history?${params.toString()}`;
+      const url = `http://localhost:8000/alerts/anomalies?${params.toString()}`;
       console.log(`📜 [${new Date().toLocaleTimeString()}] Fetching alerts history from: ${url}`);
 
       const response = await fetch(url);
@@ -53,13 +54,40 @@ export default function AlertsHistory() {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data: AlertsHistoryResponse = await response.json();
+      const data = await response.json();
       console.log("📊 Alerts History API response:", data);
 
+      // Transformar anomalías al formato de alertas
+      const transformedAlerts: Alert[] = (data.anomalies || []).map((anomaly: any) => {
+        const anomalyType = anomaly.value < anomaly.expected_range.min 
+          ? "below_minimum" 
+          : anomaly.value > anomaly.expected_range.max 
+            ? "above_maximum" 
+            : "threshold_exceeded";
+
+        return {
+          alert_id: `anomaly_${anomaly.device_id}_${new Date(anomaly.ts).getTime()}`,
+          timestamp: anomaly.ts,
+          alert_type: anomalyType,
+          severity: anomaly.severity || "warning",
+          sensor_id: anomaly.device_id,
+          facade_id: anomaly.facade_id,
+          description: `Sensor ${anomaly.sensor_name} registró ${anomaly.value?.toFixed(2)}°C, fuera del rango esperado (${anomaly.expected_range.min}°C - ${anomaly.expected_range.max}°C)`,
+          resolved: false,
+        };
+      });
+
+      const transformedData: AlertsHistoryResponse = {
+        count: transformedAlerts.length,
+        facade_type: data.facade_type,
+        time_range_hours: data.time_range_hours,
+        alerts: transformedAlerts,
+      };
+
       if (isMountedRef.current) {
-        setResponseData(data);
+        setResponseData(transformedData);
         setLastUpdate(new Date().toLocaleString());
-        console.log(`✅ Successfully loaded ${data.count} alerts from history`);
+        console.log(`✅ Successfully loaded ${transformedData.count} alerts from history`);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -335,8 +363,11 @@ export default function AlertsHistory() {
           }}
         >
           <strong>Error:</strong> {error}
-          <p style={{ margin: "0.5rem 0 0 0", fontSize: "12px" }}>
+          <p style={{ margin: "0.5rem 0 0 0", fontSize: "14px" }}>
             Verifica que la API esté ejecutándose en http://localhost:8000
+          </p>
+          <p style={{ margin: "0.5rem 0 0 0", fontSize: "12px", color: "#856404" }}>
+            💡 Nota: Este historial muestra anomalías detectadas en tiempo real. Si no hay registros, significa que el sistema está funcionando correctamente.
           </p>
         </div>
       )}
@@ -352,12 +383,15 @@ export default function AlertsHistory() {
             boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
           }}
         >
-          <AlertCircle size={64} color="#6c757d" style={{ marginBottom: "1rem" }} />
-          <h3 style={{ color: "#6c757d", margin: "0 0 0.5rem 0" }}>
-            No se encontraron alertas
+          <AlertCircle size={64} color="#28a745" style={{ marginBottom: "1rem" }} />
+          <h3 style={{ color: "#28a745", margin: "0 0 0.5rem 0" }}>
+            ¡Excelente! No hay alertas
           </h3>
-          <p style={{ color: "#6c757d", margin: 0 }}>
-            No hay alertas registradas en las últimas {responseData.time_range_hours} horas
+          <p style={{ color: "#6c757d", margin: "0 0 0.5rem 0" }}>
+            No se detectaron anomalías en las últimas {responseData.time_range_hours} horas
+          </p>
+          <p style={{ color: "#888", margin: 0, fontSize: "14px" }}>
+            Todos los sensores están operando dentro de los rangos esperados
           </p>
         </div>
       )}
