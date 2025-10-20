@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.ts'],
     testTimeout: 15000,
-    include: ['**/__tests__/**/*.test.{ts,tsx}'],
+    include: ['**/__tests__/**/*.test.{ts,tsx}', '**/__tests__/**/*.e2e.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

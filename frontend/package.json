@@ -9,10 +9,13 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "tailwind:init": "tailwindcss init -p",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test": "vitest run --exclude=**/*.e2e.test.tsx",
+    "test:watch": "vitest --exclude=**/*.e2e.test.tsx",
+    "test:ui": "vitest --ui --exclude=**/*.e2e.test.tsx",
+    "test:coverage": "vitest run --coverage --exclude=**/*.e2e.test.tsx",
+    "test:e2e": "vitest run src/__tests__/**/*.e2e.test.tsx",
+    "test:e2e:watch": "vitest src/__tests__/**/*.e2e.test.tsx",
+    "test:all": "vitest run"
   },
   "dependencies": {
     "@swc/core": "^1.13.5",
