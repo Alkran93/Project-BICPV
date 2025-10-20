@@ -1,0 +1,382 @@
+/**
+ * PRUEBA DE INTEGRACIÓN: Visualización de Temperatura del Refrigerante por Sensor
+ * 
+ * Funcionalidad: HU - Visualización de la temperatura del refrigerante en cada punto 
+ * del ciclo de refrigeración (por sensor)
+ * 
+ * Tipo de Prueba: Integración
+ * 
+ * Justificación: Se valida la integración entre:
+ * - Llamadas API (realtime/facades, facades/overview, facades/sensors)
+ * - Procesamiento de datos (filtrado, mapeo, cálculos)
+ * - Renderizado visual (grid SVG 5x3 con 15 sensores)
+ * - Interactividad (click en sensor, auto-refresh)
+ * 
+ * Una prueba unitaria no cubriría el flujo completo API → Procesamiento → UI.
+ * Un E2E sería excesivo para esta funcionalidad específica sin navegación compleja.
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import PanelDetail from '../components/PanelDetail';
+
+const mockTemperatureSensors = {
+  facade_id: "2",
+  facade_type: "refrigerated",
+  data: {
+    Temperature_M1: { value: 24.1, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M2: { value: 27.3, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M3: { value: 26.8, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M4: { value: 25.4, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M5: { value: 28.9, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M6: { value: 27.1, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M7: { value: 26.3, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M8: { value: 29.7, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M9: { value: 28.2, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M10: { value: 27.6, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M11: { value: 30.2, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M12: { value: 28.5, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M13: { value: 27.9, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M14: { value: 26.7, ts: "2025-10-20T10:00:00Z" },
+    Temperature_M15: { value: 29.3, ts: "2025-10-20T10:00:00Z" },
+    Irradiancia: { value: 850, ts: "2025-10-20T10:00:00Z" },
+    Velocidad_Viento: { value: 3.2, ts: "2025-10-20T10:00:00Z" },
+  }
+};
+
+const mockEnvironmentalData = {
+  facade_id: "2",
+  facade_type: "refrigerated",
+  current_readings: [
+    { sensor_name: "Irradiancia", value: 850, unit: "W/m²" },
+    { sensor_name: "Velocidad_Viento", value: 3.2, unit: "m/s" },
+    { sensor_name: "Temperatura_Ambiente", value: 22.5, unit: "°C" },
+    { sensor_name: "Humedad", value: 68, unit: "%" },
+  ]
+};
+
+const mockSensorsList = {
+  sensors: [
+    "Temperature_M1", "Temperature_M2", "Temperature_M3",
+    "Temperature_M4", "Temperature_M5", "Temperature_M6",
+    "Temperature_M7", "Temperature_M8", "Temperature_M9",
+    "Temperature_M10", "Temperature_M11", "Temperature_M12",
+    "Temperature_M13", "Temperature_M14", "Temperature_M15"
+  ]
+};
+
+const mockProps = {
+  title: "Refrigerada",
+  refrigerated: true,
+  faults: 0,
+  temperature: 27.5,
+  sensors: [26, 27, 28, 25, 29, 27, 26, 30, 28, 28, 31, 29, 28, 27, 29],
+  onBack: vi.fn(),
+  onSystemTempClick: vi.fn(),
+  id: "2"
+};
+
+describe('PanelDetail - Visualización de Temperatura por Sensor (Integración)', () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    global.fetch = mockFetch;
+
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/realtime/facades/')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockTemperatureSensors),
+        });
+      } else if (url.includes('/sensors')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockSensorsList),
+        });
+      } else if (url.includes('/facades/')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockEnvironmentalData),
+        });
+      }
+      return Promise.reject(new Error('URL no mockeada'));
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.clearAllTimers();
+  });
+
+  describe('Suite 1: Carga Inicial de Datos', () => {
+    it('debería realizar las 3 llamadas API correctas al montar el componente', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/realtime/facades/2')
+        );
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/facades/2/sensors')
+        );
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/facades/2')
+        );
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('debería cargar y procesar los 15 sensores de temperatura', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('15')).toBeInTheDocument();
+        expect(screen.getByText('Sensores Activos')).toBeInTheDocument();
+      });
+    });
+
+    it('debería calcular y mostrar la temperatura promedio correcta', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      // El promedio de los 15 sensores es: 27.6°C
+      // (24.1 + 27.3 + 26.8 + 25.4 + 28.9 + 27.1 + 26.3 + 29.7 + 28.2 + 27.6 + 30.2 + 28.5 + 27.9 + 26.7 + 29.3) / 15 = 27.6
+      const expectedAvg = 27.6;
+
+      await waitFor(() => {
+        const avgText = screen.getByText(/27\.6.*°C/i);
+        expect(avgText).toBeInTheDocument();
+      }, { timeout: 10000 });
+    });
+  });
+
+  describe('Suite 2: Visualización del Grid de Sensores', () => {
+    it('debería renderizar el grid SVG con 15 celdas de sensores', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        const svg = document.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+        
+        const sensorGroups = document.querySelectorAll('svg g');
+        expect(sensorGroups.length).toBeGreaterThanOrEqual(15);
+      });
+    });
+
+    it('debería mostrar valores de temperatura en cada celda del grid', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        const temperatureTexts = Array.from(document.querySelectorAll('svg text'))
+          .filter(text => /^\d{2}°$/.test(text.textContent || ''));
+        
+        expect(temperatureTexts.length).toBeGreaterThan(0);
+      }, { timeout: 3000 });
+    });
+
+    it('debería marcar sensores en alerta (temperatura < 25°C) con stroke rojo', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        const alertRects = document.querySelectorAll('rect[stroke="#e63946"]');
+        expect(alertRects.length).toBeGreaterThan(0);
+      }, { timeout: 3000 });
+    });
+  });
+
+  describe('Suite 3: Interacción con Sensores', () => {
+    it('debería mostrar información detallada al hacer click en un sensor', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        const sensorGroups = document.querySelectorAll('svg g');
+        expect(sensorGroups.length).toBeGreaterThan(0);
+      });
+
+      const firstSensor = document.querySelectorAll('svg g')[0];
+      fireEvent.click(firstSensor);
+
+      await waitFor(() => {
+        expect(screen.getByText('Información del Sensor')).toBeInTheDocument();
+      });
+    });
+
+    it('debería mostrar información del sensor seleccionado', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        const sensorGroups = document.querySelectorAll('svg g');
+        expect(sensorGroups.length).toBeGreaterThan(0);
+      });
+
+      const firstSensor = document.querySelectorAll('svg g')[0];
+      fireEvent.click(firstSensor);
+
+      await waitFor(() => {
+        // El componente muestra el ID completo del sensor (Temperature_M15)
+        const textContent = screen.getByText('Información del Sensor').parentElement?.textContent || '';
+        expect(textContent).toContain('Temperature_M');
+        expect(textContent).toContain('Sensor:');
+        expect(textContent).toContain('Temperatura:');
+      });
+    });
+    });
+  });
+
+  describe('Suite 4: Datos Ambientales', () => {
+    it('debería cargar y mostrar las 4 condiciones ambientales', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Irradiancia')).toBeInTheDocument();
+        expect(screen.getByText('Velocidad Viento')).toBeInTheDocument();
+        expect(screen.getByText('Temperatura Ambiente')).toBeInTheDocument();
+        expect(screen.getByText('Humedad')).toBeInTheDocument();
+      });
+    });
+
+    it('debería mostrar los valores correctos de las condiciones ambientales', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('850.0')).toBeInTheDocument();
+        expect(screen.getByText('3.2')).toBeInTheDocument();
+        expect(screen.getByText('22.5')).toBeInTheDocument();
+        expect(screen.getByText('68')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+  });
+
+  describe('Suite 5: Auto-refresh de Datos', () => {
+    it('debería actualizar datos cada 5 segundos', async () => {
+      vi.useFakeTimers();
+
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+      });
+
+      vi.advanceTimersByTime(5000);
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledTimes(5);
+      });
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe('Suite 6: Cálculos de Rango de Temperatura', () => {
+    it('debería calcular y mostrar correctamente el rango min/max de temperatura', async () => {
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        const rangeText = screen.getByText(/Rango Temperatura/);
+        expect(rangeText).toBeInTheDocument();
+        
+        const rangeValue = rangeText.parentElement?.textContent;
+        expect(rangeValue).toMatch(/\d+\.\d°C \/ \d+\.\d°C/);
+      }, { timeout: 3000 });
+    });
+  });
+
+  describe('Suite 7: Manejo de Errores', () => {
+    it('debería manejar errores de API sin romper la UI', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Fachada Solar Fotovoltaica/)).toBeInTheDocument();
+      });
+    });
+
+    it('debería usar valores de fallback cuando no hay datos de temperatura', async () => {
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/realtime/facades/')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ facade_id: "2", data: {} }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockSensorsList),
+        });
+      });
+
+      render(<PanelDetail {...mockProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/27\.5°C/)).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+  });
+
+  describe('Suite 8: Diferenciación por Fachada', () => {
+    it('debería usar el ID correcto de la fachada en las llamadas API', async () => {
+      render(<PanelDetail {...mockProps} id="2" />);
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/facades/2')
+        );
+        expect(mockFetch).not.toHaveBeenCalledWith(
+          expect.stringContaining('/facades/1')
+        );
+      });
+    });
+
+    it('debería mostrar datos diferentes para cada fachada', async () => {
+      const { rerender } = render(<PanelDetail {...mockProps} id="2" />);
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/facades/2')
+        );
+      });
+
+      vi.clearAllMocks();
+
+      rerender(<PanelDetail {...mockProps} id="1" />);
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/facades/1')
+        );
+      });
+    });
+  });
+
+  describe('Suite 9: Navegación y Callbacks', () => {
+    it('debería llamar onBack al presionar el botón Volver', async () => {
+      const onBackMock = vi.fn();
+      render(<PanelDetail {...mockProps} onBack={onBackMock} />);
+
+      const backButton = screen.getByRole('button', { name: /volver/i });
+      fireEvent.click(backButton);
+
+      expect(onBackMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('debería llamar onSystemTempClick al hacer click en la temperatura promedio', async () => {
+      const onTempClickMock = vi.fn();
+      render(<PanelDetail {...mockProps} onSystemTempClick={onTempClickMock} />);
+
+      await waitFor(() => {
+        const tempCard = screen.getByText(/Temperatura Promedio/);
+        expect(tempCard).toBeInTheDocument();
+      });
+
+      const tempCard = screen.getByText(/Temperatura Promedio/).closest('.metric-card');
+      expect(tempCard).toBeInTheDocument();
+      
+      if (tempCard) {
+        fireEvent.click(tempCard);
+        expect(onTempClickMock).toHaveBeenCalledTimes(1);
+      }
+    });
+  });
+});
