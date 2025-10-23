@@ -38,6 +38,8 @@ export default function Panel({
     setLoading(true);
     try {
       const url = `http://localhost:8000/realtime/facades/${id}`;
+      console.log(`🔍 Panel (${title}) - Fetching from: ${url}`);
+      
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -45,7 +47,7 @@ export default function Panel({
       }
 
       const data = await response.json();
-      console.log("🔍 Panel - Realtime API response:", data);
+      console.log(`🔍 Panel (${title}) - Realtime API response:`, data);
 
       // La respuesta tiene estructura: { facade_id, facade_type, data: {...} }
       const sensorData = data.data || {};
@@ -64,10 +66,10 @@ export default function Panel({
         }
       });
 
-      console.log("🌡️ Panel - Processed temperature sensors:", tempSensors);
+      console.log(`🌡️ Panel (${title}) - Processed temperature sensors:`, tempSensors);
       setTemperatureSensors(tempSensors);
     } catch (error) {
-      console.error("Error fetching temperature sensors:", error);
+      console.error(`Error fetching temperature sensors for ${title}:`, error);
       setTemperatureSensors([]);
     } finally {
       setLoading(false);

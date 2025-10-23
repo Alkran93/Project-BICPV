@@ -1,0 +1,195 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                 PRUEBAS AUTOMATIZADAS - PROYECTO BICPV                       ║
+║                          Backend API Testing                                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  RESULTADOS FINALES                                                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Total de Pruebas:        77
+  Pruebas Exitosas:        77
+  Pruebas Fallidas:        0
+  Tasa de Exito:           100%
+  Tiempo de Ejecucion:     5:52 minutos
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  DISTRIBUCION POR HISTORIA DE USUARIO                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────┬───────────────────────────────────────┬────────┬─────────────┐
+  │   HU    │           Descripcion                 │ Pruebas│   Estado    │
+  ├─────────┼───────────────────────────────────────┼────────┼─────────────┤
+  │  HU10   │  Ciclo de Refrigeracion               │  10/10 │  ✓ 100%     │
+  │  HU13   │  Comparacion de Intercambiadores      │  10/10 │  ✓ 100%     │
+  │  HU15   │  Alertas Automaticas de Fallos        │  16/16 │  ✓ 100%     │
+  │  HU17   │  Comparacion de Desempeno             │  11/11 │  ✓ 100%     │
+  │  HU18   │  Exportacion a CSV                    │  14/14 │  ✓ 100%     │
+  │  HU21   │  Historial de Alertas                 │  16/16 │  ✓ 100%     │
+  └─────────┴───────────────────────────────────────┴────────┴─────────────┘
+
+  TOTAL:                                               77/77    ✓ 100%
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ARCHIVOS GENERADOS                                                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Pruebas Automatizadas:
+    ├── test_hu10_refrigeration_cycle.py       (7.7 KB - 10 pruebas)
+    ├── test_hu13_exchanger_comparison.py      (5.2 KB - 10 pruebas)
+    ├── test_hu15_automatic_alerts.py          (7.3 KB - 16 pruebas)
+    ├── test_hu17_performance_comparison.py    (5.9 KB - 11 pruebas)
+    ├── test_hu18_csv_export.py                (6.5 KB - 14 pruebas)
+    └── test_hu21_alerts_history.py            (7.0 KB - 16 pruebas)
+                                    TOTAL: 1081 lineas de codigo
+
+  Configuracion:
+    ├── pytest.ini                             (392 bytes)
+    ├── run_tests.sh                           (1.8 KB)
+    └── requirements-test.txt                  (73 bytes)
+
+  Documentacion:
+    ├── tests/README.md                        (Guia de uso)
+    ├── TESTS_DOCUMENTATION.md                 (8.3 KB - Detalle completo)
+    ├── EXECUTIVE_SUMMARY.md                   (5.9 KB - Resumen ejecutivo)
+    └── REPORTE_FINAL_PRUEBAS.md              (7.9 KB - Reporte final)
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  TIPO DE PRUEBAS                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Tipo:           Integracion E2E (End-to-End)
+  Framework:      pytest 8.4.2
+  HTTP Client:    httpx 0.27+
+  Python:         3.12.3
+  
+  Caracteristicas:
+    ✓ Pruebas contra API real en localhost:8000
+    ✓ Validacion con base de datos real
+    ✓ Manejo de errores y casos limite
+    ✓ Documentacion completa por prueba
+    ✓ Ejecucion independiente
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  COMANDOS DE EJECUCION                                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Todas las pruebas:
+    $ pytest tests/ -v
+
+  Por Historia de Usuario:
+    $ pytest tests/test_hu10_refrigeration_cycle.py -v
+    $ pytest tests/test_hu13_exchanger_comparison.py -v
+    $ pytest tests/test_hu17_performance_comparison.py -v
+    $ pytest tests/test_hu18_csv_export.py -v
+    $ pytest tests/test_hu21_alerts_history.py -v
+
+  Con script:
+    $ ./run_tests.sh              # Todas
+    $ ./run_tests.sh hu10         # Solo HU10
+    $ ./run_tests.sh coverage     # Con reporte de cobertura
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  COBERTURA DE ENDPOINTS                                                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Temperaturas:
+    ✓ /temperatures/refrigerant-cycle/{id}
+    ✓ /temperatures/exchanger/{id}
+    ✓ /temperatures/water/{id}
+
+  Fachadas:
+    ✓ /facades/
+    ✓ /facades/{id}
+    ✓ /facades/compare
+    ✓ /facades/{id}/average
+
+  Exportacion:
+    ✓ /exports/csv/facade/{id}
+    ✓ /exports/csv/temperatures/{id}
+    ✓ /exports/csv/sensors/{id}
+    ✓ /exports/csv/compare/{id}
+
+  Alertas:
+    ✓ /alerts/history
+    ✓ /alerts/active
+    ✓ /alerts/resolved
+    ✓ /alerts/statistics
+    ✓ /alerts/{id}
+
+  Analytics:
+    ✓ /analytics/refrigeration/{id}
+    ✓ /analytics/performance/{id}
+    ✓ /analytics/efficiency/compare
+
+  Sensores:
+    ✓ /sensors/refrigeration
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  METRICAS DE CALIDAD                                                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Validaciones implementadas:
+    ✓ Codigos de estado HTTP (200, 404, 422, 500)
+    ✓ Estructura de respuestas JSON
+    ✓ Tipos de datos correctos
+    ✓ Valores en rangos validos
+    ✓ Manejo de errores
+    ✓ Integraciones entre endpoints
+
+  Casos de prueba:
+    ✓ Casos exitosos (happy path)
+    ✓ Casos con IDs invalidos
+    ✓ Casos con parametros incorrectos
+    ✓ Casos de integracion completa
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  REQUISITOS PREVIOS                                                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  1. API corriendo en localhost:8000
+     $ cd /home/santi/PROYECTO2/Project-BICPV
+     $ docker-compose up
+
+  2. Entorno virtual activado
+     $ source venv/bin/activate
+
+  3. Dependencias instaladas
+     $ pip install -r backend/tests/requirements-test.txt
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  DOCUMENTACION ADICIONAL                                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Funcionalidad, Tipo de Prueba y Justificacion:
+    → TESTS_DOCUMENTATION.md
+
+  Resumen Ejecutivo con Tablas:
+    → EXECUTIVE_SUMMARY.md
+
+  Reporte Final Completo:
+    → REPORTE_FINAL_PRUEBAS.md
+
+  Guia Rapida:
+    → tests/README.md
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                  ✓ TODAS LAS PRUEBAS EXITOSAS - 61/61                       ║
+║                                                                              ║
+║                        TASA DE EXITO: 100%                                   ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Proyecto: BICPV - Sistema de Monitoreo de Fachadas Fotovoltaicas
+Fecha: $(date)
+Python: 3.12.3 | pytest: 8.4.2 | httpx: 0.27+
