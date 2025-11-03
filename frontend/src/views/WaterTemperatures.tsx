@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import PDFExportButton from "./PDFExportButton"; // ← AGREGAR IMPORT
 
 ChartJS.register(
   CategoryScale,
@@ -27,13 +28,12 @@ interface ExchangerDataPoint {
 }
 
 export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number }) {
-  const [temps, setTemps] = useState<ExchangerDataPoint[]>([]); // ya no se usa para gráficas; lo dejamos por compatibilidad
+  const [temps, setTemps] = useState<ExchangerDataPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const isMountedRef = useRef(true);
 
-  // Datos crudos por serie
   const [inletReadings, setInletReadings] = useState<ExchangerDataPoint[]>([]);
   const [outletReadings, setOutletReadings] = useState<ExchangerDataPoint[]>([]);
 
@@ -43,8 +43,6 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
     setError(null);
 
     try {
-      // Si quieres usar la fachada seleccionada en vez de buscar una refrigerada, cambia esta parte.
-      // Aquí buscamos la primera fachada refrigerada (igual que tenías).
       const facadesUrl = `http://localhost:8000/facades`;
       console.log(`🔍 Fetching facades list from: ${facadesUrl}`);
 
@@ -74,11 +72,9 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
       const json = await response.json();
       console.log("✅ Raw exchanger response:", json);
 
-      // Ajuste: la estructura puede variar; adaptamos según lo que devolviste antes
       const inlet = json.exchanger_data?.inlet?.readings || [];
       const outlet = json.exchanger_data?.outlet?.readings || [];
 
-      // Normalizar a estructura { ts, value }
       const inletNormalized: ExchangerDataPoint[] = inlet.map((r: any) => ({
         ts: r.ts,
         value: Number(r.value),
@@ -93,8 +89,6 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
       if (isMountedRef.current) {
         setInletReadings(inletNormalized);
         setOutletReadings(outletNormalized);
-
-        // opcional: dejar temps combinados por compatibilidad
         setTemps(inletNormalized);
         setLastUpdate(new Date().toLocaleString());
       }
@@ -114,23 +108,19 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
     };
   }, [fetchWaterTemps]);
 
-  // Construir unión de timestamps y datasets alineados
   const { labels, inletSeries, outletSeries } = (() => {
-    // union de timestamps
     const tsSet = new Set<string>();
     inletReadings.forEach((r) => tsSet.add(r.ts));
     outletReadings.forEach((r) => tsSet.add(r.ts));
 
     const labelsArr = Array.from(tsSet).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
-    // crear un map para lookup
     const inletMap = new Map(inletReadings.map((r) => [r.ts, r.value]));
     const outletMap = new Map(outletReadings.map((r) => [r.ts, r.value]));
 
     const inletData = labelsArr.map((ts) => (inletMap.has(ts) ? inletMap.get(ts)! : null));
     const outletData = labelsArr.map((ts) => (outletMap.has(ts) ? outletMap.get(ts)! : null));
 
-    // Formatear labels a hora legible (o deja la fecha completa si prefieres)
     const labelsFormatted = labelsArr.map((ts) => {
       try {
         return new Date(ts).toLocaleTimeString();
@@ -152,7 +142,7 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
         backgroundColor: "rgba(33,150,243,0.1)",
         tension: 0.3,
         fill: true,
-        spanGaps: true, // intenta unir pequeños gaps
+        spanGaps: true,
       },
       {
         label: "Temperatura Salida (°C)",
@@ -172,7 +162,7 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
       legend: { position: "top" as const },
       title: {
         display: true,
-        text: "Temperaturas del Agua — Intercambiador",
+        text: "Temperaturas del Agua – Intercambiador",
         font: { size: 18, weight: "bold" as const },
       },
       tooltip: {
@@ -202,8 +192,19 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
     },
   };
 
+  // Calcular estadísticas
+  const stats = labels.length > 0 ? {
+    avgInlet: inletSeries.filter(v => v !== null).reduce((sum, v) => sum + v!, 0) / inletSeries.filter(v => v !== null).length,
+    avgOutlet: outletSeries.filter(v => v !== null).reduce((sum, v) => sum + v!, 0) / outletSeries.filter(v => v !== null).length,
+    maxInlet: Math.max(...inletSeries.filter(v => v !== null) as number[]),
+    maxOutlet: Math.max(...outletSeries.filter(v => v !== null) as number[]),
+    minInlet: Math.min(...inletSeries.filter(v => v !== null) as number[]),
+    minOutlet: Math.min(...outletSeries.filter(v => v !== null) as number[]),
+  } : null;
+
   return (
     <div style={{ padding: "2rem", backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
+      {/* Header - MODIFICADO */}
       <div
         style={{
           display: "flex",
@@ -213,26 +214,39 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
         }}
       >
         <h2 style={{ fontSize: "1.75rem", fontWeight: "bold", color: "#214B4E" }}>
-          💧 Temperaturas del Agua — Intercambiador
+          💧 Temperaturas del Agua – Intercambiador
         </h2>
 
-        <button
-          onClick={fetchWaterTemps}
-          disabled={loading}
-          style={{
-            backgroundColor: loading ? "#6c757d" : "#007bff",
-            color: "white",
-            padding: "0.75rem 1.5rem",
-            border: "none",
-            borderRadius: "8px",
-            cursor: loading ? "not-allowed" : "pointer",
-            fontWeight: "600",
-          }}
-        >
-          {loading ? "Cargando..." : "Actualizar"}
-        </button>
+        {/* BOTONES - MODIFICADO */}
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <button
+            onClick={fetchWaterTemps}
+            disabled={loading}
+            style={{
+              backgroundColor: loading ? "#6c757d" : "#007bff",
+              color: "white",
+              padding: "0.75rem 1.5rem",
+              border: "none",
+              borderRadius: "8px",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontWeight: "600",
+            }}
+          >
+            {loading ? "Cargando..." : "Actualizar"}
+          </button>
+
+          {/* NUEVO: Botón PDF */}
+          {!loading && !error && labels.length > 0 && (
+            <PDFExportButton
+              title="Temperaturas del Agua - Intercambiador"
+              elementId="water-temps-pdf-content"
+              filename="temperaturas-intercambiador"
+            />
+          )}
+        </div>
       </div>
 
+      {/* Error - FUERA del contenido PDF */}
       {error && (
         <div
           style={{
@@ -248,6 +262,7 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
         </div>
       )}
 
+      {/* Empty state - FUERA del contenido PDF */}
       {!loading && !error && labels.length === 0 && (
         <div
           style={{
@@ -262,23 +277,125 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
         </div>
       )}
 
-      {labels.length > 0 && (
-        <div
-          style={{
-            backgroundColor: "white",
-            padding: "2rem",
-            borderRadius: "12px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          }}
-        >
-          <Line data={chartData} options={chartOptions} height={400} />
-          {lastUpdate && (
-            <p style={{ marginTop: "1rem", color: "#6c757d", fontSize: "14px" }}>
-              Última actualización: {lastUpdate}
-            </p>
-          )}
-        </div>
-      )}
+      {/* CONTENIDO EXPORTABLE - AGREGAR DIV CON ID */}
+      <div id="water-temps-pdf-content">
+        {labels.length > 0 && (
+          <>
+            {/* Estadísticas */}
+            {stats && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "1rem",
+                  marginBottom: "1.5rem",
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    padding: "1.5rem",
+                    borderRadius: "12px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <h3 style={{ fontSize: "0.875rem", color: "#6c757d", marginBottom: "0.5rem", fontWeight: "600" }}>
+                    ENTRADA PROMEDIO
+                  </h3>
+                  <p style={{ fontSize: "1.75rem", fontWeight: "bold", color: "#2196f3", margin: 0 }}>
+                    {stats.avgInlet.toFixed(2)}°C
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    padding: "1.5rem",
+                    borderRadius: "12px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <h3 style={{ fontSize: "0.875rem", color: "#6c757d", marginBottom: "0.5rem", fontWeight: "600" }}>
+                    SALIDA PROMEDIO
+                  </h3>
+                  <p style={{ fontSize: "1.75rem", fontWeight: "bold", color: "#ff9800", margin: 0 }}>
+                    {stats.avgOutlet.toFixed(2)}°C
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    padding: "1.5rem",
+                    borderRadius: "12px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <h3 style={{ fontSize: "0.875rem", color: "#6c757d", marginBottom: "0.5rem", fontWeight: "600" }}>
+                    RANGO ENTRADA
+                  </h3>
+                  <p style={{ fontSize: "1.25rem", fontWeight: "bold", color: "#2196f3", margin: 0 }}>
+                    {stats.minInlet.toFixed(2)} - {stats.maxInlet.toFixed(2)}°C
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    padding: "1.5rem",
+                    borderRadius: "12px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <h3 style={{ fontSize: "0.875rem", color: "#6c757d", marginBottom: "0.5rem", fontWeight: "600" }}>
+                    RANGO SALIDA
+                  </h3>
+                  <p style={{ fontSize: "1.25rem", fontWeight: "bold", color: "#ff9800", margin: 0 }}>
+                    {stats.minOutlet.toFixed(2)} - {stats.maxOutlet.toFixed(2)}°C
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    padding: "1.5rem",
+                    borderRadius: "12px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <h3 style={{ fontSize: "0.875rem", color: "#6c757d", marginBottom: "0.5rem", fontWeight: "600" }}>
+                    DIFERENCIA Δ
+                  </h3>
+                  <p style={{ fontSize: "1.75rem", fontWeight: "bold", color: "#198754", margin: 0 }}>
+                    {(stats.avgInlet - stats.avgOutlet).toFixed(2)}°C
+                  </p>
+                  <p style={{ fontSize: "0.75rem", color: "#6c757d", marginTop: "0.25rem" }}>
+                    Entrada - Salida
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Gráfico */}
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "2rem",
+                borderRadius: "12px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+              }}
+            >
+              <Line data={chartData} options={chartOptions} height={400} />
+              {lastUpdate && (
+                <p style={{ marginTop: "1rem", color: "#6c757d", fontSize: "14px", textAlign: "center" }}>
+                  Última actualización: {lastUpdate}
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      {/* FIN DEL CONTENIDO EXPORTABLE */}
     </div>
   );
 }

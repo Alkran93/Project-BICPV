@@ -13,6 +13,7 @@ import {
   Filler,
 } from "chart.js";
 import { Thermometer, RefreshCw, AlertTriangle, Calendar } from "lucide-react";
+import PDFExportButton from "./PDFExportButton"
 
 ChartJS.register(
   CategoryScale,
@@ -26,7 +27,7 @@ ChartJS.register(
   Filler
 );
 
-// Backend response structure
+// ... (mantén todas tus interfaces igual)
 interface BackendReading {
   ts: string;
   value: number;
@@ -45,7 +46,6 @@ interface BackendResponse {
   };
 }
 
-// Frontend display structure
 interface RefrigerantCycleRecord {
   cycle_point: string;
   avg_temperature: number;
@@ -71,7 +71,6 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const isMountedRef = useRef(true);
 
-  // Parámetros de filtro opcionales
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
@@ -102,15 +101,12 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
       const data: BackendResponse = await response.json();
       console.log("❄️ Refrigerant Cycle API response:", data);
 
-      // Transformar datos del backend al formato del frontend
       const refrigerationCycle: RefrigerantCycleRecord[] = [];
 
-      // Procesar cada punto del ciclo
       for (const cyclePoint of Object.values(data.cycle_points)) {
         const readings = cyclePoint.readings;
         
         if (readings && readings.length > 0) {
-          // Calcular estadísticas de las lecturas
           const temperatures = readings.map(r => r.value).filter(v => v !== null && v !== undefined);
           
           if (temperatures.length > 0) {
@@ -136,7 +132,7 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
 
       const transformedData: RefrigerantCycleResponse = {
         facade_id: data.facade_id,
-        facade_type: "refrigerada", // Asumimos que si hay datos, es refrigerada
+        facade_type: "refrigerada",
         refrigeration_cycle: refrigerationCycle
       };
 
@@ -178,7 +174,6 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
 
   const cycleData = responseData?.refrigeration_cycle || [];
 
-  // Preparar datos para gráfica de barras
   const barChartData = {
     labels: cycleData.map((record) => record.cycle_point),
     datasets: [
@@ -186,11 +181,10 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
         label: "Temperatura Promedio (°C)",
         data: cycleData.map((record) => record.avg_temperature),
         backgroundColor: cycleData.map((record) => {
-          // Colorear según temperatura
-          if (record.avg_temperature > 60) return "rgba(230, 57, 70, 0.8)"; // Rojo (caliente)
-          if (record.avg_temperature > 30) return "rgba(255, 152, 0, 0.8)"; // Naranja (medio)
-          if (record.avg_temperature > 0) return "rgba(33, 150, 243, 0.8)"; // Azul (frío)
-          return "rgba(76, 175, 80, 0.8)"; // Verde (muy frío)
+          if (record.avg_temperature > 60) return "rgba(230, 57, 70, 0.8)";
+          if (record.avg_temperature > 30) return "rgba(255, 152, 0, 0.8)";
+          if (record.avg_temperature > 0) return "rgba(33, 150, 243, 0.8)";
+          return "rgba(76, 175, 80, 0.8)";
         }),
         borderColor: "#214B4E",
         borderWidth: 2,
@@ -242,7 +236,6 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
     },
   };
 
-  // Preparar datos para gráfica de líneas (rangos)
   const lineChartData = {
     labels: cycleData.map((record) => record.cycle_point),
     datasets: [
@@ -307,7 +300,6 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
     },
   };
 
-  // Calcular estadísticas
   const stats = cycleData.length > 0 ? {
     avgOverall: cycleData.reduce((sum, r) => sum + r.avg_temperature, 0) / cycleData.length,
     maxOverall: Math.max(...cycleData.map(r => r.max_temperature)),
@@ -319,7 +311,7 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
 
   return (
     <div style={{ padding: "2rem", backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
-      {/* Header */}
+      {/* Header - MODIFICADO */}
       <div
         style={{
           marginBottom: "2rem",
@@ -345,26 +337,38 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
             )}
           </div>
 
-          <button
-            onClick={fetchRefrigerantCycle}
-            disabled={loading}
-            style={{
-              padding: "0.75rem 1.5rem",
-              backgroundColor: loading ? "#6c757d" : "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontSize: "14px",
-              fontWeight: "600",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            <RefreshCw size={16} />
-            {loading ? "Actualizando..." : "Actualizar"}
-          </button>
+          {/* BOTONES - MODIFICADO PARA INCLUIR PDF */}
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <button
+              onClick={fetchRefrigerantCycle}
+              disabled={loading}
+              style={{
+                padding: "0.75rem 1.5rem",
+                backgroundColor: loading ? "#6c757d" : "#007bff",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontSize: "14px",
+                fontWeight: "600",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+            >
+              <RefreshCw size={16} />
+              {loading ? "Actualizando..." : "Actualizar"}
+            </button>
+
+            {/* NUEVO: Botón PDF */}
+            {!loading && !error && cycleData.length > 0 && (
+              <PDFExportButton
+                title={`Ciclo de Refrigeración - Fachada ${facadeId}`}
+                elementId="cycle-pdf-content"
+                filename={`ciclo-refrigeracion-fachada-${facadeId}`}
+              />
+            )}
+          </div>
         </div>
 
         {/* Filtros de fecha */}
@@ -417,7 +421,6 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
           </div>
         </div>
 
-        {/* Warning para fachadas no refrigeradas */}
         {responseData?.facade_type === "no_refrigerada" && (
           <div
             style={{
@@ -439,7 +442,7 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
         )}
       </div>
 
-      {/* Error display */}
+      {/* Error display - FUERA del contenido PDF */}
       {error && (
         <div
           style={{
@@ -455,206 +458,208 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
         </div>
       )}
 
-      {/* Estadísticas */}
-      {stats && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "1rem",
-            marginBottom: "2rem",
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-            }}
-          >
-            <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
-              TEMP. PROM. GENERAL
-            </h3>
-            <p style={{ margin: 0, fontSize: "2rem", fontWeight: "bold", color: "#2196f3" }}>
-              {stats.avgOverall.toFixed(2)}°C
-            </p>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-            }}
-          >
-            <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
-              RANGO TOTAL
-            </h3>
-            <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold", color: "#ff9800" }}>
-              {stats.minOverall.toFixed(2)} - {stats.maxOverall.toFixed(2)}°C
-            </p>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-            }}
-          >
-            <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
-              PUNTO MÁS CALIENTE
-            </h3>
-            <p style={{ margin: 0, fontSize: "1.2rem", fontWeight: "bold", color: "#e63946" }}>
-              {stats.hottestPoint.cycle_point}
-            </p>
-            <p style={{ margin: "0.25rem 0 0 0", fontSize: "1.5rem", color: "#e63946" }}>
-              {stats.hottestPoint.avg_temperature.toFixed(2)}°C
-            </p>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-            }}
-          >
-            <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
-              PUNTO MÁS FRÍO
-            </h3>
-            <p style={{ margin: 0, fontSize: "1.2rem", fontWeight: "bold", color: "#4caf50" }}>
-              {stats.coldestPoint.cycle_point}
-            </p>
-            <p style={{ margin: "0.25rem 0 0 0", fontSize: "1.5rem", color: "#4caf50" }}>
-              {stats.coldestPoint.avg_temperature.toFixed(2)}°C
-            </p>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-            }}
-          >
-            <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
-              TOTAL MUESTRAS
-            </h3>
-            <p style={{ margin: 0, fontSize: "2rem", fontWeight: "bold", color: "#6c757d" }}>
-              {stats.totalSamples.toLocaleString()}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Gráficas */}
-      {!loading && !error && cycleData.length > 0 && (
-        <>
+      {/* CONTENIDO EXPORTABLE - AGREGAR DIV CON ID */}
+      <div id="cycle-pdf-content">
+        {/* Estadísticas */}
+        {stats && (
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "2rem",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: "1rem",
               marginBottom: "2rem",
             }}
           >
-            {/* Gráfica de barras */}
             <div
               style={{
                 backgroundColor: "white",
-                padding: "2rem",
-                borderRadius: "16px",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                 border: "1px solid #e9ecef",
               }}
             >
-              <Bar data={barChartData} options={barChartOptions} height={300} />
+              <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
+                TEMP. PROM. GENERAL
+              </h3>
+              <p style={{ margin: 0, fontSize: "2rem", fontWeight: "bold", color: "#2196f3" }}>
+                {stats.avgOverall.toFixed(2)}°C
+              </p>
             </div>
 
-            {/* Gráfica de líneas */}
             <div
               style={{
                 backgroundColor: "white",
-                padding: "2rem",
-                borderRadius: "16px",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                 border: "1px solid #e9ecef",
               }}
             >
-              <Line data={lineChartData} options={lineChartOptions} height={300} />
+              <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
+                RANGO TOTAL
+              </h3>
+              <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold", color: "#ff9800" }}>
+                {stats.minOverall.toFixed(2)} - {stats.maxOverall.toFixed(2)}°C
+              </p>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
+                PUNTO MÁS CALIENTE
+              </h3>
+              <p style={{ margin: 0, fontSize: "1.2rem", fontWeight: "bold", color: "#e63946" }}>
+                {stats.hottestPoint.cycle_point}
+              </p>
+              <p style={{ margin: "0.25rem 0 0 0", fontSize: "1.5rem", color: "#e63946" }}>
+                {stats.hottestPoint.avg_temperature.toFixed(2)}°C
+              </p>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
+                PUNTO MÁS FRÍO
+              </h3>
+              <p style={{ margin: 0, fontSize: "1.2rem", fontWeight: "bold", color: "#4caf50" }}>
+                {stats.coldestPoint.cycle_point}
+              </p>
+              <p style={{ margin: "0.25rem 0 0 0", fontSize: "1.5rem", color: "#4caf50" }}>
+                {stats.coldestPoint.avg_temperature.toFixed(2)}°C
+              </p>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
+                TOTAL MUESTRAS
+              </h3>
+              <p style={{ margin: 0, fontSize: "2rem", fontWeight: "bold", color: "#6c757d" }}>
+                {stats.totalSamples.toLocaleString()}
+              </p>
             </div>
           </div>
+        )}
 
-          {/* Tabla de datos */}
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "2rem",
-              borderRadius: "16px",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-            }}
-          >
-            <h3 style={{ margin: "0 0 1.5rem 0", fontSize: "1.5rem", fontWeight: "bold", color: "#2c3e50" }}>
-              Datos Detallados del Ciclo
-            </h3>
+        {/* Gráficas */}
+        {!loading && !error && cycleData.length > 0 && (
+          <>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "2rem",
+                marginBottom: "2rem",
+              }}
+            >
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "2rem",
+                  borderRadius: "16px",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                  border: "1px solid #e9ecef",
+                }}
+              >
+                <Bar data={barChartData} options={barChartOptions} height={300} />
+              </div>
 
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
-                <thead>
-                  <tr style={{ backgroundColor: "#f8f9fa", borderBottom: "2px solid #dee2e6" }}>
-                    <th style={{ padding: "12px", textAlign: "left", fontWeight: "600" }}>Punto del Ciclo</th>
-                    <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Temp. Promedio</th>
-                    <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Temp. Mínima</th>
-                    <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Temp. Máxima</th>
-                    <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Muestras</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cycleData.map((record, index) => (
-                    <tr
-                      key={`${record.cycle_point}-${index}`}
-                      style={{
-                        backgroundColor: index % 2 === 0 ? "#fff" : "#f8f9fa",
-                        borderBottom: "1px solid #dee2e6",
-                      }}
-                    >
-                      <td style={{ padding: "12px", fontWeight: "600", color: "#214B4E" }}>
-                        {record.cycle_point}
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center", color: "#2196f3", fontWeight: "600" }}>
-                        {record.avg_temperature.toFixed(2)}°C
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center", color: "#4caf50" }}>
-                        {record.min_temperature.toFixed(2)}°C
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center", color: "#e63946" }}>
-                        {record.max_temperature.toFixed(2)}°C
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center" }}>
-                        {record.sample_count.toLocaleString()}
-                      </td>
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "2rem",
+                  borderRadius: "16px",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                  border: "1px solid #e9ecef",
+                }}
+              >
+                <Line data={lineChartData} options={lineChartOptions} height={300} />
+              </div>
+            </div>
+
+            {/* Tabla de datos */}
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "2rem",
+                borderRadius: "16px",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <h3 style={{ margin: "0 0 1.5rem 0", fontSize: "1.5rem", fontWeight: "bold", color: "#2c3e50" }}>
+                Datos Detallados del Ciclo
+              </h3>
+
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "#f8f9fa", borderBottom: "2px solid #dee2e6" }}>
+                      <th style={{ padding: "12px", textAlign: "left", fontWeight: "600" }}>Punto del Ciclo</th>
+                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Temp. Promedio</th>
+                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Temp. Mínima</th>
+                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Temp. Máxima</th>
+                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Muestras</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {cycleData.map((record, index) => (
+                      <tr
+                        key={`${record.cycle_point}-${index}`}
+                        style={{
+                          backgroundColor: index % 2 === 0 ? "#fff" : "#f8f9fa",
+                          borderBottom: "1px solid #dee2e6",
+                        }}
+                      >
+                        <td style={{ padding: "12px", fontWeight: "600", color: "#214B4E" }}>
+                          {record.cycle_point}
+                        </td>
+                        <td style={{ padding: "12px", textAlign: "center", color: "#2196f3", fontWeight: "600" }}>
+                          {record.avg_temperature.toFixed(2)}°C
+                        </td>
+                        <td style={{ padding: "12px", textAlign: "center", color: "#4caf50" }}>
+                          {record.min_temperature.toFixed(2)}°C
+                        </td>
+                        <td style={{ padding: "12px", textAlign: "center", color: "#e63946" }}>
+                          {record.max_temperature.toFixed(2)}°C
+                        </td>
+                        <td style={{ padding: "12px", textAlign: "center" }}>
+                          {record.sample_count.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
+      {/* FIN DEL CONTENIDO EXPORTABLE */}
 
-      {/* Empty state */}
+      {/* Empty state - FUERA del contenido PDF */}
       {!loading && !error && cycleData.length === 0 && (
         <div
           style={{
@@ -673,7 +678,7 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Loading state - FUERA del contenido PDF */}
       {loading && (
         <div
           style={{
@@ -687,36 +692,6 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
           <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>❄️</div>
           <h3 style={{ color: "#6c757d", margin: 0 }}>Cargando datos del ciclo de refrigeración...</h3>
         </div>
-      )}
-
-      {/* Debug info */}
-      {responseData && cycleData.length > 0 && (
-        <details style={{ marginTop: "2rem" }}>
-          <summary
-            style={{
-              cursor: "pointer",
-              padding: "1rem",
-              backgroundColor: "#e9ecef",
-              borderRadius: "8px",
-              fontWeight: "600",
-            }}
-          >
-            Ver datos en crudo (JSON)
-          </summary>
-          <pre
-            style={{
-              backgroundColor: "#f8f9fa",
-              padding: "1.5rem",
-              borderRadius: "8px",
-              overflow: "auto",
-              fontSize: "11px",
-              marginTop: "1rem",
-              border: "1px solid #dee2e6",
-            }}
-          >
-            {JSON.stringify(responseData, null, 2)}
-          </pre>
-        </details>
       )}
     </div>
   );

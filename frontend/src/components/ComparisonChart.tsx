@@ -21,6 +21,7 @@ import {
   Legend,
   Filler,
 } from "chart.js";
+import PDFExportButton from "../views/PDFExportButton";
 
 ChartJS.register(
   CategoryScale,
@@ -56,7 +57,6 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const isMountedRef = useRef(true);
 
-  // Función para obtener datos de comparación de ambas fachadas
   const fetchComparisonData = useCallback(async () => {
     if (!isMountedRef.current) return;
 
@@ -66,7 +66,6 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
         `📊 [${new Date().toLocaleTimeString()}] Fetching comparison data from both facades...`
       );
 
-      // Llamar a ambos endpoints en paralelo
       const url1 = `http://localhost:8000/analytics/compare/1`;
       const url2 = `http://localhost:8000/analytics/compare/2`;
       console.log(`🔍 Fetching from: ${url1} and ${url2}`);
@@ -90,11 +89,9 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
       console.log(`Facade 1 API response:`, data1);
       console.log(`Facade 2 API response:`, data2);
 
-      // Extraer datos de no_refrigerada (facade 1) y refrigerada (facade 2)
       const noRefrigeradaData = data1.comparison?.no_refrigerada || [];
       const refrigeradaData = data2.comparison?.refrigerada || [];
 
-      // Filtrar solo sensores de temperatura
       const tempRefrigerada = refrigeradaData.filter((s: SensorStats) => 
         s.sensor_name.startsWith('Temperature_M')
       );
@@ -120,7 +117,6 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
     }
   }, []);
 
-  // Cargar datos una sola vez al montar el componente
   useEffect(() => {
     console.log(`Component mounted - Loading comparison data`);
     isMountedRef.current = true;
@@ -131,7 +127,6 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
     };
   }, [fetchComparisonData]);
 
-  // Debug - observar cambios en los stats
   useEffect(() => {
     console.log(`🔄 Stats updated - Refrigerada: ${refrigeradaStats.length}, No Refrigerada: ${noRefrigeradaStats.length}`);
     if (refrigeradaStats.length > 0 || noRefrigeradaStats.length > 0) {
@@ -140,10 +135,8 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
     }
   }, [refrigeradaStats, noRefrigeradaStats]);
 
-  // Combinar ambos conjuntos de datos para análisis
   const allSensors = [...refrigeradaStats, ...noRefrigeradaStats];
 
-  // Preparar datos por módulo para comparación
   const getModuleData = () => {
     const modules = ["M1", "M2", "M3", "M4", "M5"];
     
@@ -189,7 +182,6 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
       }
     : null;
 
-  // Gráfica de líneas - Comparación entre fachadas
   const lineChartData = {
     labels: moduleData.map(m => `Módulo ${m.name}`),
     datasets: [
@@ -257,7 +249,6 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
     },
   };
 
-  // Gráfica de barras - Diferencia de temperatura entre fachadas
   const barChartData = {
     labels: moduleData.map(m => `Módulo ${m.name}`),
     datasets: [
@@ -299,7 +290,6 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
     },
   };
 
-  // Scatter plot - Distribución de sensores de ambas fachadas
   const scatterData = {
     datasets: [
       {
@@ -369,7 +359,7 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
 
   return (
     <div style={{ padding: "2rem", backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
-      {/* Header */}
+      {/* Header - MODIFICADO */}
       <div
         style={{
           display: "flex",
@@ -417,6 +407,15 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
           >
             {loading ? "🔄 Cargando..." : "🔄 Actualizar Datos"}
           </button>
+
+          {/* NUEVO: Botón PDF */}
+          {!loading && allSensors.length > 0 && (
+            <PDFExportButton
+              title="Comparación Térmica: Refrigerada vs No Refrigerada"
+              elementId="comparison-chart-pdf-content"
+              filename="comparacion-termica-fachadas"
+            />
+          )}
         </div>
 
         <div style={{ textAlign: "right" }}>
@@ -453,441 +452,445 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
         </div>
       </div>
 
-      {/* Cards de métricas principales */}
-      {overallStats && (
+      {/* CONTENIDO EXPORTABLE - AGREGAR DIV CON ID */}
+      <div id="comparison-chart-pdf-content">
+        {/* Cards de métricas principales */}
+        {overallStats && (
+          <div
+            key={`metrics-${lastUpdate}`}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: "1.5rem",
+              marginBottom: "2rem",
+            }}
+          >
+            <div
+              key={`temp-avg-${lastUpdate}`}
+              style={{
+                backgroundColor: "white",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                <BarChart3 size={24} color="#214B4E" />
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    color: "#6c757d",
+                    fontWeight: "600",
+                  }}
+                >
+                  TEMP. PROM. REFRIGERADA
+                </h3>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "2rem",
+                  fontWeight: "bold",
+                  color: "#2196f3",
+                }}
+              >
+                {overallStats.meanTemp_ref.toFixed(1)}°C
+              </p>
+            </div>
+
+            <div
+              key={`temp-noref-${lastUpdate}`}
+              style={{
+                backgroundColor: "white",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                <BarChart3 size={24} color="#e63946" />
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    color: "#6c757d",
+                    fontWeight: "600",
+                  }}
+                >
+                  TEMP. PROM. NO REFRIGERADA
+                </h3>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "2rem",
+                  fontWeight: "bold",
+                  color: "#e63946",
+                }}
+              >
+                {overallStats.meanTemp_noref.toFixed(1)}°C
+              </p>
+            </div>
+
+            <div
+              key={`temp-diff-${lastUpdate}`}
+              style={{
+                backgroundColor: "white",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                <TrendingUp size={24} color="#28a745" />
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    color: "#6c757d",
+                    fontWeight: "600",
+                  }}
+                >
+                  DIFERENCIA TÉRMICA
+                </h3>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "2rem",
+                  fontWeight: "bold",
+                  color: "#28a745",
+                }}
+              >
+                {(overallStats.meanTemp_noref - overallStats.meanTemp_ref).toFixed(1)}°C
+              </p>
+            </div>
+
+            <div
+              key={`readings-ref-${lastUpdate}`}
+              style={{
+                backgroundColor: "white",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                <Activity size={24} color="#2196f3" />
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    color: "#6c757d",
+                    fontWeight: "600",
+                  }}
+                >
+                  LECTURAS REFRIGERADA
+                </h3>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "2rem",
+                  fontWeight: "bold",
+                  color: "#2196f3",
+                }}
+              >
+                {overallStats.totalReadings_ref.toLocaleString()}
+              </p>
+            </div>
+
+            <div
+              key={`readings-noref-${lastUpdate}`}
+              style={{
+                backgroundColor: "white",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #e9ecef",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                <AlertTriangle size={24} color="#e63946" />
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    color: "#6c757d",
+                    fontWeight: "600",
+                  }}
+                >
+                  LECTURAS NO REFRIGERADA
+                </h3>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "2rem",
+                  fontWeight: "bold",
+                  color: "#e63946",
+                }}
+              >
+                {overallStats.totalReadings_noref.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Grid de gráficas */}
         <div
-          key={`metrics-${lastUpdate}`}
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "1.5rem",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "2rem",
             marginBottom: "2rem",
           }}
         >
+          {/* Gráfica de líneas */}
           <div
-            key={`temp-avg-${lastUpdate}`}
+            key={`line-chart-${lastUpdate}`}
             style={{
               backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              padding: "2rem",
+              borderRadius: "16px",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
               border: "1px solid #e9ecef",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <BarChart3 size={24} color="#214B4E" />
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  color: "#6c757d",
-                  fontWeight: "600",
-                }}
-              >
-                TEMP. PROM. REFRIGERADA
-              </h3>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "2rem",
-                fontWeight: "bold",
-                color: "#2196f3",
-              }}
-            >
-              {overallStats.meanTemp_ref.toFixed(1)}°C
-            </p>
+            <Line
+              data={lineChartData}
+              options={lineChartOptions}
+              height={300}
+              key={`line-${lastUpdate}`}
+            />
           </div>
 
+          {/* Gráfica de barras */}
           <div
-            key={`temp-noref-${lastUpdate}`}
+            key={`bar-chart-${lastUpdate}`}
             style={{
               backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              padding: "2rem",
+              borderRadius: "16px",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
               border: "1px solid #e9ecef",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <BarChart3 size={24} color="#e63946" />
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  color: "#6c757d",
-                  fontWeight: "600",
-                }}
-              >
-                TEMP. PROM. NO REFRIGERADA
-              </h3>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "2rem",
-                fontWeight: "bold",
-                color: "#e63946",
-              }}
-            >
-              {overallStats.meanTemp_noref.toFixed(1)}°C
-            </p>
-          </div>
-
-          <div
-            key={`temp-diff-${lastUpdate}`}
-            style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <TrendingUp size={24} color="#28a745" />
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  color: "#6c757d",
-                  fontWeight: "600",
-                }}
-              >
-                DIFERENCIA TÉRMICA
-              </h3>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "2rem",
-                fontWeight: "bold",
-                color: "#28a745",
-              }}
-            >
-              {(overallStats.meanTemp_noref - overallStats.meanTemp_ref).toFixed(1)}°C
-            </p>
-          </div>
-
-          <div
-            key={`readings-ref-${lastUpdate}`}
-            style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <Activity size={24} color="#2196f3" />
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  color: "#6c757d",
-                  fontWeight: "600",
-                }}
-              >
-                LECTURAS REFRIGERADA
-              </h3>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "2rem",
-                fontWeight: "bold",
-                color: "#2196f3",
-              }}
-            >
-              {overallStats.totalReadings_ref.toLocaleString()}
-            </p>
-          </div>
-
-          <div
-            key={`readings-noref-${lastUpdate}`}
-            style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                marginBottom: "0.5rem",
-              }}
-            >
-              <AlertTriangle size={24} color="#e63946" />
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  color: "#6c757d",
-                  fontWeight: "600",
-                }}
-              >
-                LECTURAS NO REFRIGERADA
-              </h3>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "2rem",
-                fontWeight: "bold",
-                color: "#e63946",
-              }}
-            >
-              {overallStats.totalReadings_noref.toLocaleString()}
-            </p>
+            <Bar
+              data={barChartData}
+              options={barChartOptions}
+              height={300}
+              key={`bar-${lastUpdate}`}
+            />
           </div>
         </div>
-      )}
 
-      {/* Grid de gráficas */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "2rem",
-          marginBottom: "2rem",
-        }}
-      >
-        {/* Gráfica de líneas */}
+        {/* Gráfica de dispersión full width */}
         <div
-          key={`line-chart-${lastUpdate}`}
+          key={`scatter-chart-${lastUpdate}`}
           style={{
             backgroundColor: "white",
             padding: "2rem",
             borderRadius: "16px",
             boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
             border: "1px solid #e9ecef",
+            marginBottom: "2rem",
           }}
         >
-          <Line
-            data={lineChartData}
-            options={lineChartOptions}
-            height={300}
-            key={`line-${lastUpdate}`}
+          <Scatter
+            data={scatterData}
+            options={scatterOptions}
+            height={400}
+            key={`scatter-${lastUpdate}`}
           />
         </div>
 
-        {/* Gráfica de barras */}
-        <div
-          key={`bar-chart-${lastUpdate}`}
-          style={{
-            backgroundColor: "white",
-            padding: "2rem",
-            borderRadius: "16px",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-            border: "1px solid #e9ecef",
-          }}
-        >
-          <Bar
-            data={barChartData}
-            options={barChartOptions}
-            height={300}
-            key={`bar-${lastUpdate}`}
-          />
-        </div>
-      </div>
-
-      {/* Gráfica de dispersión full width */}
-      <div
-        key={`scatter-chart-${lastUpdate}`}
-        style={{
-          backgroundColor: "white",
-          padding: "2rem",
-          borderRadius: "16px",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-          border: "1px solid #e9ecef",
-          marginBottom: "2rem",
-        }}
-      >
-        <Scatter
-          data={scatterData}
-          options={scatterOptions}
-          height={400}
-          key={`scatter-${lastUpdate}`}
-        />
-      </div>
-
-      {/* Tabla de datos detallados */}
-      {allSensors.length > 0 && (
-        <div
-          key={`table-container-${lastUpdate}`}
-          style={{
-            backgroundColor: "white",
-            padding: "2rem",
-            borderRadius: "16px",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-            border: "1px solid #e9ecef",
-          }}
-        >
-          <h3
+        {/* Tabla de datos detallados */}
+        {allSensors.length > 0 && (
+          <div
+            key={`table-container-${lastUpdate}`}
             style={{
-              margin: "0 0 1.5rem 0",
-              fontSize: "1.5rem",
-              fontWeight: "bold",
-              color: "#2c3e50",
+              backgroundColor: "white",
+              padding: "2rem",
+              borderRadius: "16px",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+              border: "1px solid #e9ecef",
             }}
           >
-            Datos Detallados de Comparación - Cargado: {lastUpdate}
-          </h3>
-
-          <div style={{ overflowX: "auto" }}>
-            <table
-              key={`sensor-table-${lastUpdate}`}
+            <h3
               style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "14px",
+                margin: "0 0 1.5rem 0",
+                fontSize: "1.5rem",
+                fontWeight: "bold",
+                color: "#2c3e50",
               }}
             >
-              <thead>
-                <tr style={{ backgroundColor: "#f8f9fa" }}>
-                  <th
-                    style={{
-                      padding: "12px",
-                      textAlign: "left",
-                      borderBottom: "2px solid #dee2e6",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Sensor
-                  </th>
-                  <th
-                    style={{
-                      padding: "12px",
-                      textAlign: "center",
-                      borderBottom: "2px solid #dee2e6",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Tipo Fachada
-                  </th>
-                  <th
-                    style={{
-                      padding: "12px",
-                      textAlign: "center",
-                      borderBottom: "2px solid #dee2e6",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Lecturas
-                  </th>
-                  <th
-                    style={{
-                      padding: "12px",
-                      textAlign: "center",
-                      borderBottom: "2px solid #dee2e6",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Temp. Media
-                  </th>
-                  <th
-                    style={{
-                      padding: "12px",
-                      textAlign: "center",
-                      borderBottom: "2px solid #dee2e6",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Min / Max
-                  </th>
-                </tr>
-              </thead>
-              <tbody key={`tbody-${lastUpdate}`}>
-                {allSensors.map((sensor, index) => (
-                  <tr
-                    key={`${sensor.sensor_name}-${sensor.facade_type}-${index}`}
-                    style={{
-                      backgroundColor: index % 2 === 0 ? "#fff" : "#f8f9fa",
-                      borderBottom: "1px solid #dee2e6",
-                    }}
-                  >
-                    <td
-                      style={{ padding: "12px", fontWeight: "600", color: "#214B4E" }}
-                    >
-                      {sensor.sensor_name.replace("Temperature_", "")}
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center" }}>
-                      <span
-                        style={{
-                          padding: "4px 12px",
-                          borderRadius: "12px",
-                          backgroundColor: sensor.facade_type === "refrigerada" ? "#e3f2fd" : "#ffebee",
-                          color: sensor.facade_type === "refrigerada" ? "#2196f3" : "#e63946",
-                          fontWeight: "600",
-                          fontSize: "12px",
-                        }}
-                      >
-                        {sensor.facade_type === "refrigerada" ? "REF" : "NO REF"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center" }}>
-                      {sensor.count.toLocaleString()}
-                    </td>
-                    <td
+              Datos Detallados de Comparación
+            </h3>
+
+            <div style={{ overflowX: "auto" }}>
+              <table
+                key={`sensor-table-${lastUpdate}`}
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: "14px",
+                }}
+              >
+                <thead>
+                  <tr style={{ backgroundColor: "#f8f9fa" }}>
+                    <th
                       style={{
                         padding: "12px",
-                        textAlign: "center",
+                        textAlign: "left",
+                        borderBottom: "2px solid #dee2e6",
                         fontWeight: "600",
                       }}
                     >
-                      {sensor.avg_value.toFixed(1)}°C
-                    </td>
-                    <td style={{ padding: "12px", textAlign: "center" }}>
-                      <span style={{ color: "#2196f3" }}>
-                        {sensor.min_value.toFixed(1)}
-                      </span>
-                      {" / "}
-                      <span style={{ color: "#e63946" }}>
-                        {sensor.max_value.toFixed(1)}
-                      </span>
-                    </td>
+                      Sensor
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px",
+                        textAlign: "center",
+                        borderBottom: "2px solid #dee2e6",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Tipo Fachada
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px",
+                        textAlign: "center",
+                        borderBottom: "2px solid #dee2e6",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Lecturas
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px",
+                        textAlign: "center",
+                        borderBottom: "2px solid #dee2e6",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Temp. Media
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px",
+                        textAlign: "center",
+                        borderBottom: "2px solid #dee2e6",
+                        fontWeight: "600",
+                      }}
+                    >
+                      Min / Max
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody key={`tbody-${lastUpdate}`}>
+                  {allSensors.map((sensor, index) => (
+                    <tr
+                      key={`${sensor.sensor_name}-${sensor.facade_type}-${index}`}
+                      style={{
+                        backgroundColor: index % 2 === 0 ? "#fff" : "#f8f9fa",
+                        borderBottom: "1px solid #dee2e6",
+                      }}
+                    >
+                      <td
+                        style={{ padding: "12px", fontWeight: "600", color: "#214B4E" }}
+                      >
+                        {sensor.sensor_name.replace("Temperature_", "")}
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center" }}>
+                        <span
+                          style={{
+                            padding: "4px 12px",
+                            borderRadius: "12px",
+                            backgroundColor: sensor.facade_type === "refrigerada" ? "#e3f2fd" : "#ffebee",
+                            color: sensor.facade_type === "refrigerada" ? "#2196f3" : "#e63946",
+                            fontWeight: "600",
+                            fontSize: "12px",
+                          }}
+                        >
+                          {sensor.facade_type === "refrigerada" ? "REF" : "NO REF"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center" }}>
+                        {sensor.count.toLocaleString()}
+                      </td>
+                      <td
+                        style={{
+                          padding: "12px",
+                          textAlign: "center",
+                          fontWeight: "600",
+                        }}
+                      >
+                        {sensor.avg_value.toFixed(1)}°C
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center" }}>
+                        <span style={{ color: "#2196f3" }}>
+                          {sensor.min_value.toFixed(1)}
+                        </span>
+                        {" / "}
+                        <span style={{ color: "#e63946" }}>
+                          {sensor.max_value.toFixed(1)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+      {/* FIN DEL CONTENIDO EXPORTABLE */}
 
-      {/* Estado de carga */}
+      {/* Estado de carga - FUERA del contenido PDF */}
       {loading && allSensors.length === 0 && (
         <div
           style={{

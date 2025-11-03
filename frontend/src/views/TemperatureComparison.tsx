@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import PDFExportButton from "./PDFExportButton";
 
 ChartJS.register(
   CategoryScale,
@@ -40,9 +41,8 @@ export default function TemperatureComparison() {
     setError(null);
 
     try {
-      // Primero obtener la lista de fachadas
       const facadesUrl = `http://localhost:8000/facades`;
-      console.log(`� Fetching facades list from: ${facadesUrl}`);
+      console.log(`🔍 Fetching facades list from: ${facadesUrl}`);
 
       const facadesResponse = await fetch(facadesUrl);
       if (!facadesResponse.ok) {
@@ -54,7 +54,6 @@ export default function TemperatureComparison() {
 
       const facades = facadesJson.facades || [];
       
-      // Identificar las fachadas refrigerada y no refrigerada
       const refrigerated = facades.find((f: any) => f.facade_type === "refrigerada");
       const nonRefrigerated = facades.find((f: any) => f.facade_type === "no_refrigerada");
 
@@ -62,9 +61,8 @@ export default function TemperatureComparison() {
         throw new Error("No se encontraron ambas fachadas (refrigerada y no refrigerada)");
       }
 
-      console.log(`🔍 Fachada refrigerada: ${refrigerated.facade_id}, No refrigerada: ${nonRefrigerated.facade_id}`);
+      console.log(`🔎 Fachada refrigerada: ${refrigerated.facade_id}, No refrigerada: ${nonRefrigerated.facade_id}`);
 
-      // Hacer peticiones en paralelo para ambas fachadas
       const [refResponse, nonRefResponse] = await Promise.all([
         fetch(`http://localhost:8000/realtime/facades/${refrigerated.facade_id}`),
         fetch(`http://localhost:8000/realtime/facades/${nonRefrigerated.facade_id}`)
@@ -80,7 +78,6 @@ export default function TemperatureComparison() {
       console.log("Refrigerated data:", refData);
       console.log("Non-refrigerated data:", nonRefData);
 
-      // Extraer temperaturas promedio de los sensores de temperatura
       const extractTemperatures = (facadeData: any): TempData[] => {
         const data = facadeData.data || {};
         const tempSensors = Object.entries(data).filter(([key]) => 
@@ -89,7 +86,6 @@ export default function TemperatureComparison() {
 
         if (tempSensors.length === 0) return [];
 
-        // Calcular temperatura promedio
         const avgTemp = tempSensors.reduce((sum, [, sensor]: [string, any]) => 
           sum + (sensor.value || 0), 0
         ) / tempSensors.length;
@@ -120,7 +116,6 @@ export default function TemperatureComparison() {
     isMountedRef.current = true;
     fetchTemperatureComparison();
     
-    // Auto-refresh cada 10 segundos
     const interval = setInterval(fetchTemperatureComparison, 10000);
     
     return () => {
@@ -129,7 +124,6 @@ export default function TemperatureComparison() {
     };
   }, [fetchTemperatureComparison]);
 
-  // Preparar datos para el gráfico
   const hasData = refrigeratedData.length > 0 && nonRefrigeratedData.length > 0;
   
   const chartData = {
@@ -164,7 +158,7 @@ export default function TemperatureComparison() {
       },
       title: {
         display: true,
-        text: "Comparativa de Temperaturas — Fachada Refrigerada vs No Refrigerada",
+        text: "Comparativa de Temperaturas – Fachada Refrigerada vs No Refrigerada",
         font: { size: 18, weight: "bold" as const },
       },
       tooltip: {
@@ -199,13 +193,13 @@ export default function TemperatureComparison() {
     },
   };
 
-  // Calcular diferencia de temperatura
   const tempDifference = hasData 
     ? nonRefrigeratedData[0].temperature - refrigeratedData[0].temperature 
     : 0;
 
   return (
     <div style={{ padding: "2rem", backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
+      {/* Header - MODIFICADO */}
       <div
         style={{
           display: "flex",
@@ -218,21 +212,32 @@ export default function TemperatureComparison() {
           🌡️ Comparativa de Temperaturas
         </h2>
 
-        <button
-          onClick={fetchTemperatureComparison}
-          disabled={loading}
-          style={{
-            backgroundColor: loading ? "#6c757d" : "#007bff",
-            color: "white",
-            padding: "0.75rem 1.5rem",
-            border: "none",
-            borderRadius: "8px",
-            cursor: loading ? "not-allowed" : "pointer",
-            fontWeight: "600",
-          }}
-        >
-          {loading ? "Cargando..." : "Actualizar"}
-        </button>
+        {/* BOTONES - MODIFICADO */}
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <button
+            onClick={fetchTemperatureComparison}
+            disabled={loading}
+            style={{
+              backgroundColor: loading ? "#6c757d" : "#007bff",
+              color: "white",
+              padding: "0.75rem 1.5rem",
+              border: "none",
+              borderRadius: "8px",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontWeight: "600",
+            }}
+          >
+            {loading ? "Cargando..." : "Actualizar"}
+          </button>
+
+          {!loading && !error && hasData && (
+            <PDFExportButton
+              title="Comparativa de Temperaturas - Refrigerada vs No Refrigerada"
+              elementId="comparison-pdf-content"
+              filename="comparativa-temperaturas"
+            />
+          )}
+        </div>
       </div>
 
       {error && (
@@ -250,6 +255,7 @@ export default function TemperatureComparison() {
         </div>
       )}
 
+      {/* Empty state - FUERA del contenido PDF */}
       {!loading && !error && !hasData && (
         <div
           style={{
@@ -264,90 +270,90 @@ export default function TemperatureComparison() {
         </div>
       )}
 
-      {hasData && (
-        <>
-          {/* Estadísticas comparativas */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-              gap: "1rem",
-              marginBottom: "1.5rem",
-            }}
-          >
+      <div id="comparison-pdf-content">
+        {hasData && (
+          <>
             <div
               style={{
-                backgroundColor: "white",
-                padding: "1.5rem",
-                borderRadius: "12px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+                gap: "1rem",
+                marginBottom: "1.5rem",
               }}
             >
-              <h3 style={{ fontSize: "1rem", color: "#6c757d", marginBottom: "0.5rem" }}>
-                🧊 Fachada Refrigerada
-              </h3>
-              <p style={{ fontSize: "2rem", fontWeight: "bold", color: "#0d6efd", margin: 0 }}>
-                {refrigeratedData[0].temperature.toFixed(2)}°C
-              </p>
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "1.5rem",
+                  borderRadius: "12px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                }}
+              >
+                <h3 style={{ fontSize: "1rem", color: "#6c757d", marginBottom: "0.5rem" }}>
+                  🧊 Fachada Refrigerada
+                </h3>
+                <p style={{ fontSize: "2rem", fontWeight: "bold", color: "#0d6efd", margin: 0 }}>
+                  {refrigeratedData[0].temperature.toFixed(2)}°C
+                </p>
+              </div>
+
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "1.5rem",
+                  borderRadius: "12px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                }}
+              >
+                <h3 style={{ fontSize: "1rem", color: "#6c757d", marginBottom: "0.5rem" }}>
+                  🌡️ Fachada No Refrigerada
+                </h3>
+                <p style={{ fontSize: "2rem", fontWeight: "bold", color: "#dc3545", margin: 0 }}>
+                  {nonRefrigeratedData[0].temperature.toFixed(2)}°C
+                </p>
+              </div>
+
+              <div
+                style={{
+                  backgroundColor: "white",
+                  padding: "1.5rem",
+                  borderRadius: "12px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                }}
+              >
+                <h3 style={{ fontSize: "1rem", color: "#6c757d", marginBottom: "0.5rem" }}>
+                  📊 Diferencia
+                </h3>
+                <p style={{ fontSize: "2rem", fontWeight: "bold", color: "#198754", margin: 0 }}>
+                  {tempDifference.toFixed(2)}°C
+                </p>
+                <p style={{ fontSize: "0.875rem", color: "#6c757d", marginTop: "0.5rem" }}>
+                  {tempDifference > 0 
+                    ? `La refrigeración reduce ${tempDifference.toFixed(2)}°C`
+                    : "Sin diferencia significativa"}
+                </p>
+              </div>
             </div>
 
             <div
               style={{
                 backgroundColor: "white",
-                padding: "1.5rem",
+                padding: "2rem",
                 borderRadius: "12px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                height: "500px",
               }}
             >
-              <h3 style={{ fontSize: "1rem", color: "#6c757d", marginBottom: "0.5rem" }}>
-                🌡️ Fachada No Refrigerada
-              </h3>
-              <p style={{ fontSize: "2rem", fontWeight: "bold", color: "#dc3545", margin: 0 }}>
-                {nonRefrigeratedData[0].temperature.toFixed(2)}°C
-              </p>
+              <Line data={chartData} options={chartOptions} />
+              {lastUpdate && (
+                <p style={{ marginTop: "1rem", color: "#6c757d", fontSize: "14px", textAlign: "center" }}>
+                  Última actualización: {lastUpdate}
+                </p>
+              )}
             </div>
-
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "1.5rem",
-                borderRadius: "12px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              }}
-            >
-              <h3 style={{ fontSize: "1rem", color: "#6c757d", marginBottom: "0.5rem" }}>
-                📊 Diferencia
-              </h3>
-              <p style={{ fontSize: "2rem", fontWeight: "bold", color: "#198754", margin: 0 }}>
-                {tempDifference.toFixed(2)}°C
-              </p>
-              <p style={{ fontSize: "0.875rem", color: "#6c757d", marginTop: "0.5rem" }}>
-                {tempDifference > 0 
-                  ? `La refrigeración reduce ${tempDifference.toFixed(2)}°C`
-                  : "Sin diferencia significativa"}
-              </p>
-            </div>
-          </div>
-
-          {/* Gráfico de barras */}
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "2rem",
-              borderRadius: "12px",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              height: "500px",
-            }}
-          >
-            <Line data={chartData} options={chartOptions} />
-            {lastUpdate && (
-              <p style={{ marginTop: "1rem", color: "#6c757d", fontSize: "14px", textAlign: "center" }}>
-                Última actualización: {lastUpdate} | Actualización automática cada 10 segundos
-              </p>
-            )}
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
