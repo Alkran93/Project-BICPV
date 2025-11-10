@@ -121,19 +121,8 @@ export default function AlertsHistory() {
     }
   }, [limitFilter, facadeTypeFilter, hoursFilter]);
 
-  const getSeverityColor = (severity: string) => {
-    const severityLower = severity?.toLowerCase() || "";
-
-    if (severityLower.includes("critical") || severityLower.includes("high")) {
-      return "#dc2626";
-    }
-
-    if (severityLower.includes("medium") || severityLower.includes("warning")) {
-      return "#f59e0b";
-    }
-
-    return "#3b82f6";
-  };
+  // Removed unused function - using getSeverityBadgeStyle instead
+  // const getSeverityColor = (severity: string) => { ... }
 
   const getSeverityBadgeStyle = (severity: string) => {
     const severityLower = severity?.toLowerCase() || "";

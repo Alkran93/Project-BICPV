@@ -299,38 +299,50 @@ async def get_facade_type_comparison(facade_id: str) -> Dict[str, Any]:
         raise RuntimeError("Redis client not initialized")
 
     try:
-        # Define Redis keys for both facade types
-        refrigerada_key = f"facade:{facade_id}:refrigerada:latest"
-        no_refrigerada_key = f"facade:{facade_id}:no_refrigerada:latest"
+        # Define Redis key (all sensor data for the facade is stored in a single hash)
+        key = f"facade:{facade_id}:latest"
 
-        # Retrieve data for both facade types
-        refrigerada_data = await redis_client.hgetall(refrigerada_key)
-        no_refrigerada_data = await redis_client.hgetall(no_refrigerada_key)
+        # Retrieve all sensor data for the facade
+        all_data = await redis_client.hgetall(key)
 
-        # Decode JSON values for refrigerated facade data
-        try:
-            refrigerada_decoded = {
-                k: json.loads(v) if isinstance(v, str) and v.startswith("{") else v
-                for k, v in refrigerada_data.items()
-            } if refrigerada_data else {}
-        except Exception:
-            refrigerada_decoded = refrigerada_data if refrigerada_data else {}
+        if not all_data:
+            return {
+                "facade_id": facade_id,
+                "comparison": {
+                    "refrigerada": None,
+                    "no_refrigerada": None
+                }
+            }
 
-        # Decode JSON values for non-refrigerated facade data
-        try:
-            no_refrigerada_decoded = {
-                k: json.loads(v) if isinstance(v, str) and v.startswith("{") else v
-                for k, v in no_refrigerada_data.items()
-            } if no_refrigerada_data else {}
-        except Exception:
-            no_refrigerada_decoded = no_refrigerada_data if no_refrigerada_data else {}
+        # Separate data by facade_type
+        refrigerada_data = {}
+        no_refrigerada_data = {}
+
+        for sensor_name, value_str in all_data.items():
+            try:
+                # Decode JSON value
+                value_obj = json.loads(value_str) if isinstance(value_str, str) and value_str.startswith("{") else {"value": value_str}
+                
+                # Get facade_type from the value object
+                facade_type = value_obj.get("facade_type", "unknown")
+                
+                # Separate by facade_type
+                if facade_type == "refrigerada":
+                    refrigerada_data[sensor_name] = value_obj
+                elif facade_type == "no_refrigerada":
+                    no_refrigerada_data[sensor_name] = value_obj
+                    
+            except Exception as e:
+                # Log decode errors but continue processing
+                print(f"⚠️  Error decoding sensor {sensor_name}: {e}")
+                continue
 
         # Construct and return the comparison response
         return {
             "facade_id": facade_id,
             "comparison": {
-                "refrigerada": refrigerada_decoded if refrigerada_decoded else None,
-                "no_refrigerada": no_refrigerada_decoded if no_refrigerada_decoded else None
+                "refrigerada": refrigerada_data if refrigerada_data else None,
+                "no_refrigerada": no_refrigerada_data if no_refrigerada_data else None
             }
         }
 

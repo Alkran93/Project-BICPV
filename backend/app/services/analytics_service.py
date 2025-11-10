@@ -370,3 +370,153 @@ async def compare_facade_types_average(facade_id: str, sensor_name: Optional[str
         print(f"❌ Error comparing facade averages: {e}")
         # Raise the exception to be handled by the caller
         raise
+
+async def get_panel_temperature_by_module(
+    facade_id: str,
+    facade_type: Optional[str] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Calculates average panel temperatures per module (M1-M5) for a specific facade.
+    
+    Each module has 3 temperature sensors following the pattern T_M{module}_{point}:
+    - Module 1: T_M1_1, T_M1_2, T_M1_3
+    - Module 2: T_M2_1, T_M2_2, T_M2_3
+    - Module 3: T_M3_1, T_M3_2, T_M3_3
+    - Module 4: T_M4_1, T_M4_2, T_M4_3
+    - Module 5: T_M5_1, T_M5_2, T_M5_3
+    
+    The function calculates the average of the 3 sensors for each module.
+    
+    Parameters:
+    - facade_id (str): ID of the facade to analyze. Required.
+    - facade_type (Optional[str]): Filter by facade type ('refrigerada' or 'no_refrigerada'). Default: None.
+    - start (Optional[str]): Start date/time in ISO8601 format for data range. Default: None.
+    - end (Optional[str]): End date/time in ISO8601 format for data range. Default: None.
+    
+    Returns:
+    - Dict[str, Any]: Dictionary containing:
+      - facade_id (str): ID of the facade analyzed.
+      - facade_type (str or null): Facade type filter applied.
+      - time_range (Dict): Start and end timestamps.
+      - modules (List[Dict]): List of module statistics, each containing:
+        - module (str): Module identifier (M1, M2, M3, M4, M5).
+        - average_temperature (float): Average temperature across all 3 sensors.
+        - min_temperature (float): Minimum temperature recorded.
+        - max_temperature (float): Maximum temperature recorded.
+        - sensors (List[Dict]): Individual sensor data:
+          - sensor_name (str): Name of the sensor.
+          - avg_value (float): Average value for this sensor.
+          - sample_count (int): Number of measurements for this sensor.
+    
+    Exceptions:
+    - RuntimeError: Raised if the database connection pool is not initialized.
+    - asyncpg.exceptions.PostgresError: Raised if a database query error occurs.
+    """
+    # Obtain the database connection pool
+    pool = get_pool()
+    if not pool:
+        raise RuntimeError("Database connection pool not initialized")
+    
+    # Build base SQL query to retrieve sensor data
+    sql = """
+        SELECT 
+            sensor_name,
+            AVG(value) AS avg_value,
+            MIN(value) AS min_value,
+            MAX(value) AS max_value,
+            COUNT(*) AS sample_count
+        FROM measurements
+        WHERE facade_id = $1
+        AND sensor_name ~ '^T_M[1-5]_[1-3]$'
+    """
+    
+    params = [facade_id]
+    param_idx = 2
+    
+    # Add optional filters
+    if facade_type:
+        sql += f" AND facade_type = ${param_idx}"
+        params.append(facade_type)
+        param_idx += 1
+    
+    if start:
+        sql += f" AND ts >= ${param_idx}"
+        params.append(start)
+        param_idx += 1
+    
+    if end:
+        sql += f" AND ts <= ${param_idx}"
+        params.append(end)
+        param_idx += 1
+    
+    sql += " GROUP BY sensor_name ORDER BY sensor_name"
+    
+    try:
+        # Execute query
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(sql, *params)
+            
+            if not rows:
+                return {
+                    "facade_id": facade_id,
+                    "facade_type": facade_type,
+                    "time_range": {"start": start, "end": end},
+                    "modules": []
+                }
+            
+            # Group sensors by module
+            modules_data = {}
+            for row in rows:
+                sensor_name = row["sensor_name"]
+                # Extract module number from sensor name (e.g., T_M1_1 -> M1)
+                import re
+                match = re.match(r'T_M(\d)_\d', sensor_name)
+                if match:
+                    module_num = match.group(1)
+                    module_id = f"M{module_num}"
+                    
+                    if module_id not in modules_data:
+                        modules_data[module_id] = {
+                            "sensors": [],
+                            "total_avg": 0,
+                            "sensor_count": 0,
+                            "all_values": []
+                        }
+                    
+                    modules_data[module_id]["sensors"].append({
+                        "sensor_name": sensor_name,
+                        "avg_value": float(row["avg_value"]),
+                        "sample_count": int(row["sample_count"])
+                    })
+                    
+                    modules_data[module_id]["total_avg"] += float(row["avg_value"])
+                    modules_data[module_id]["sensor_count"] += 1
+                    modules_data[module_id]["all_values"].extend([
+                        float(row["min_value"]),
+                        float(row["max_value"])
+                    ])
+            
+            # Calculate final statistics per module
+            modules = []
+            for module_id in sorted(modules_data.keys()):
+                data = modules_data[module_id]
+                modules.append({
+                    "module": module_id,
+                    "average_temperature": round(data["total_avg"] / data["sensor_count"], 2),
+                    "min_temperature": round(min(data["all_values"]), 2),
+                    "max_temperature": round(max(data["all_values"]), 2),
+                    "sensors": data["sensors"]
+                })
+            
+            return {
+                "facade_id": facade_id,
+                "facade_type": facade_type,
+                "time_range": {"start": start, "end": end},
+                "modules": modules
+            }
+            
+    except Exception as e:
+        print(f"❌ Error retrieving panel temperatures by module for facade {facade_id}: {e}")
+        raise

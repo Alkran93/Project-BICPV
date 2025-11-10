@@ -176,16 +176,17 @@ async def get_exchanger_temperatures(
     # Define sensors for heat exchanger temperatures
     sensors = list(EXCHANGER_TEMPS.keys())
     
-    # Construct SQL query to fetch exchanger temperature measurements
+    # Construct SQL query that gets data from BOTH sensors independently
+    # Using UNION to ensure balanced results from inlet and outlet
     sql = """
-        SELECT ts, sensor_name, value, device_id
-        FROM measurements
-        WHERE facade_id = $1 
-        AND facade_type = 'refrigerada'
-        AND sensor_name = ANY($2::text[])
+        (SELECT ts, sensor_name, value, device_id
+         FROM measurements
+         WHERE facade_id = $1 
+         AND facade_type = 'refrigerada'
+         AND sensor_name = 'T_Entrada_Agua'
     """
-    params = [facade_id, sensors]
-    idx = 3
+    params = [facade_id]
+    idx = 2
 
     if start:
         sql += f" AND ts >= ${idx}"
@@ -197,8 +198,36 @@ async def get_exchanger_temperatures(
         params.append(end)
         idx += 1
 
-    sql += f" ORDER BY sensor_name, ts DESC LIMIT ${idx}"
+    sql += f" ORDER BY ts DESC LIMIT ${idx})"
     params.append(limit)
+    idx += 1
+    
+    sql += f"""
+        UNION ALL
+        (SELECT ts, sensor_name, value, device_id
+         FROM measurements
+         WHERE facade_id = ${idx}
+         AND facade_type = 'refrigerada'
+         AND sensor_name = 'T_Salida_Agua'
+    """
+    params.append(facade_id)  # Add facade_id again for second query
+    idx += 1
+    
+    # Add start/end filters for outlet query
+    if start:
+        sql += f" AND ts >= ${idx}"
+        params.append(start)
+        idx += 1
+
+    if end:
+        sql += f" AND ts <= ${idx}"
+        params.append(end)
+        idx += 1
+
+    sql += f" ORDER BY ts DESC LIMIT ${idx})"
+    params.append(limit)
+    
+    sql += " ORDER BY ts DESC"
 
     try:
         # Acquire a database connection and execute the query

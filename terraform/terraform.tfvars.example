@@ -1,0 +1,22 @@
+# ============================================================================
+# Terraform Variables File
+# Copy this to terraform.tfvars and fill in your values
+# ============================================================================
+
+# REQUIRED: Your GCP Project ID
+project_id = "your-gcp-project-id"
+
+# REQUIRED: GCP Region (default: us-central1)
+region = "us-central1"
+
+# REQUIRED: GCP Zone (default: us-central1-a)
+zone = "us-central1-a"
+
+# REQUIRED: Environment (dev, staging, prod)
+environment = "prod"
+
+# OPTIONAL: GKE Cluster name
+cluster_name = "solar-facades-cluster"
+
+# REQUIRED: Your domain name for the application
+domain_name = "api.solar-facades.example.com"

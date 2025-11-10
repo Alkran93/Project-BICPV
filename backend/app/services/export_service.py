@@ -132,7 +132,10 @@ async def generate_comparison_csv_export(
     end: Optional[str] = None,
 ) -> tuple[str, bytes]:
     """
-    Generates a CSV file comparing data for a specific sensor between refrigerated and non-refrigerated facades.
+    [DEPRECATED] Generates a CSV file comparing data for a specific sensor between refrigerated and non-refrigerated facades.
+    
+    This function compares types within a single facade. 
+    For comparing across multiple facades, use generate_multi_facade_comparison_csv().
 
     HU17: Compare performance with and without refrigeration to validate hypotheses.
 
@@ -223,6 +226,133 @@ async def generate_comparison_csv_export(
     except asyncpg.PostgresError as e:
         # Log the database error for debugging purposes
         print(f"❌ Error generating comparison CSV: {e}")
+        # Raise the exception to be handled by the caller
+        raise
+    except Exception as e:
+        # Log unexpected errors for debugging purposes
+        print(f"❌ Unexpected error: {e}")
+        # Raise the exception to be handled by the caller
+        raise
+
+
+async def generate_multi_facade_comparison_csv(
+    sensor: str,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+) -> tuple[str, bytes]:
+    """
+    Generates a CSV file comparing data for a specific sensor across ALL facades in the system.
+
+    HU17: Compare performance with and without refrigeration to validate hypotheses.
+    
+    Design rationale:
+    - Compares sensor values BETWEEN different facades, not types within a single facade
+    - Each column represents a unique facade_id + facade_type combination
+    - Allows researchers to compare performance across multiple installations
+    - Validates refrigeration effectiveness by comparing actual facades, not just abstract types
+    
+    Example output columns:
+    - timestamp, facade_1_refrigerada, facade_1_no_refrigerada, facade_2_refrigerada, facade_2_no_refrigerada, etc.
+
+    Parameters:
+    - sensor (str): Name of the sensor to compare across facades. Required.
+    - start (Optional[str]): Start date/time for the data range in ISO8601 format. Default: None (no start date filter).
+    - end (Optional[str]): End date/time for the data range in ISO8601 format. Default: None (no end date filter).
+
+    Returns:
+    - tuple[str, bytes]: A tuple containing:
+      - filename (str): The generated CSV filename, including sensor and timestamp.
+      - content (bytes): The CSV content encoded in UTF-8, with columns for each facade configuration.
+
+    Exceptions:
+    - RuntimeError: Raised if the database connection pool is not initialized.
+    - ValueError: Raised if no data is available for comparison.
+    - asyncpg.exceptions.PostgresError: Raised if a database query error occurs.
+    """
+    # Obtain the database connection pool
+    pool = get_pool()
+    if not pool:
+        raise RuntimeError("Database connection pool not initialized")
+
+    # Construct SQL query to get all facades with the specified sensor
+    sql = """
+        SELECT ts, facade_id, facade_type, value
+        FROM measurements
+        WHERE sensor_name = $1
+    """
+    params = [sensor]
+    idx = 2
+
+    if start:
+        sql += f" AND ts >= ${idx}"
+        params.append(start)
+        idx += 1
+
+    if end:
+        sql += f" AND ts <= ${idx}"
+        params.append(end)
+        idx += 1
+
+    sql += " ORDER BY ts ASC, facade_id ASC, facade_type ASC LIMIT 100000"
+
+    try:
+        # Acquire a database connection and execute the query
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(sql, *params)
+
+        # Check if data is available
+        if not rows:
+            raise ValueError(f"No data available for sensor '{sensor}'")
+
+        # Discover all unique facade configurations (facade_id + facade_type)
+        facade_configs = set()
+        for row in rows:
+            config = f"{row['facade_id']}_{row['facade_type']}"
+            facade_configs.add(config)
+
+        # Sort facade configurations for consistent column order
+        facade_configs = sorted(facade_configs)
+
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        sensor_clean = sensor.replace(" ", "_")
+        filename = f"comparison_all_facades_{sensor_clean}_{timestamp}.csv"
+
+        # Group data by timestamp and facade configuration
+        data_by_time = {}
+        for row in rows:
+            ts = row["ts"]
+            config = f"{row['facade_id']}_{row['facade_type']}"
+            
+            if ts not in data_by_time:
+                data_by_time[ts] = {}
+            
+            # Store value for this specific facade configuration
+            data_by_time[ts][config] = row["value"]
+
+        # Create CSV content in memory
+        output = io.StringIO()
+        fieldnames = ["timestamp"] + facade_configs
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+
+        # Write rows sorted by timestamp
+        for ts in sorted(data_by_time.keys()):
+            row_data = {"timestamp": ts.isoformat() if hasattr(ts, "isoformat") else str(ts)}
+            
+            # Add data for each facade configuration
+            for config in facade_configs:
+                row_data[config] = data_by_time[ts].get(config, "")
+            
+            writer.writerow(row_data)
+
+        # Encode CSV content to bytes
+        csv_content = output.getvalue().encode("utf-8")
+        return filename, csv_content
+
+    except asyncpg.PostgresError as e:
+        # Log the database error for debugging purposes
+        print(f"❌ Error generating multi-facade comparison CSV: {e}")
         # Raise the exception to be handled by the caller
         raise
     except Exception as e:

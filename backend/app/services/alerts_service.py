@@ -333,7 +333,7 @@ async def get_alert_history(
             error_rows = await conn.fetch(error_sql, *params)
 
             # Process error records and append to alerts list
-            for row in rows:
+            for row in error_rows:
                 alerts.append({
                     "id": f"error_{row['device_id']}_{row['ts'].timestamp()}",
                     "type": "sensor_error",

@@ -5,9 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api import (
     routes_alerts,
     routes_analytics,
+    routes_charts,
+    routes_chart_data,
+    routes_control,
+    routes_efficiency,
     routes_export,
     routes_facades,
     routes_realtime,
+    routes_reports,
     routes_sensors,
     routes_temperature,
 )
@@ -106,6 +111,11 @@ app.include_router(routes_realtime.router)
 app.include_router(routes_alerts.router)
 app.include_router(routes_export.router)
 app.include_router(routes_temperature.router)
+app.include_router(routes_charts.router)
+app.include_router(routes_chart_data.router)
+app.include_router(routes_control.router)
+app.include_router(routes_efficiency.router)
+app.include_router(routes_reports.router)
 
 
 # -------------------------------------------------------------------------

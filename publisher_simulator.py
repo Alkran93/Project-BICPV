@@ -42,7 +42,7 @@ def generate_sensor_map(facade_type: str = "no_refrigerada") -> Dict[str, str]:
             for point in range(1, POINTS_PER_MODULE + 1):
                 idx = i * POINTS_PER_MODULE + (point - 1)
                 if idx < len(sensor_ids):
-                    sensor_map[sensor_ids[idx]] = f"Temperature_{module}_{point}"
+                    sensor_map[sensor_ids[idx]] = f"T_{module}_{point}"
     
     else:  # refrigerada
         # Sensor IDs for refrigerated facade (15 panel temperature sensors + refrigeration cycle sensors)
@@ -57,7 +57,7 @@ def generate_sensor_map(facade_type: str = "no_refrigerada") -> Dict[str, str]:
             for point in range(1, POINTS_PER_MODULE + 1):
                 idx = i * POINTS_PER_MODULE + (point - 1)
                 if idx < len(sensor_ids):
-                    sensor_map[sensor_ids[idx]] = f"Temperature_{module}_{point}"
+                    sensor_map[sensor_ids[idx]] = f"T_{module}_{point}"
         
         # Additional sensors for refrigeration cycle
         sensor_map.update({
@@ -185,10 +185,10 @@ def build_payload_refrigerada(facade_id: str = "1", device_id: str = "raspi_ref_
     """
     data = build_common_environmental_data()
     
-    # Module temperature sensors and refrigeration cycle sensors
-    sensor_map = generate_sensor_map("refrigerada")
-    for _id, name in sensor_map.items():
-        data[name] = random_temp(base=27, spread=10)
+    # Module temperature sensors (only panel temps, not cycle temps)
+    for i, module in enumerate(MODULES):
+        for point in range(1, POINTS_PER_MODULE + 1):
+            data[f"T_{module}_{point}"] = random_temp(base=27, spread=10)
     
     # Refrigeration cycle temperatures
     data["T_ValvulaExpansion"] = random_temp(base=8, spread=3)  # Low temperature at expansion valve

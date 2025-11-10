@@ -2,6 +2,7 @@
 
 - Overview
 - System Architecture
+- **🚀 [Deploy to Google Cloud (GKE)](#deploy-to-google-cloud)**
 - Prerequisites
 - Quick Start
 - Detailed Setup Instructions
@@ -35,6 +36,52 @@ This system monitors and analyzes temperature, environmental conditions, and per
 - Interactive React dashboard with Chart.js visualizations
 - Automated alerts and performance comparisons
 - CSV data export functionality
+- **Production-ready deployment on Google Kubernetes Engine (GKE)**
+
+---
+
+# Solar Facades Monitoring System
+
+[![GKE Deployment](https://img.shields.io/badge/GKE-Ready-4285F4?logo=google-cloud)](docs/GKE_DEPLOYMENT_GUIDE.md)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi)](backend/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](frontend/)
+[![TimescaleDB](https://img.shields.io/badge/TimescaleDB-FDB515?logo=postgresql)](docker-compose.yml)
+
+> Real-time monitoring and analysis system for photovoltaic solar facades with active cooling
+
+## 🚀 Quick Deploy to GCP
+
+**Deploy in 3 commands** (no domain required):
+
+```bash
+./scripts/deploy-initial.sh         # Press Enter when asked for domain
+./scripts/update-frontend-ip.sh     # Update frontend with backend IP
+./scripts/verify-deployment.sh      # Verify everything works
+```
+
+⏱️ **Time:** ~35-45 minutes | 💰 **Cost:** ~$520-900/month
+
+👉 **[START HERE - Complete Guide](docs/RESUMEN_FINAL.md)**
+
+---
+
+## Table of Contents
+
+### 📖 Documentation
+
+- **[Quick Start Guide](QUICKSTART.md)** - Deploy in 10 minutes without domain
+- **[IP Deployment Guide](docs/IP_DEPLOYMENT_GUIDE.md)** - Detailed guide for IP-based deployment
+- **[Complete GKE Guide](docs/GKE_DEPLOYMENT_GUIDE.md)** - Full production deployment with architecture
+- **[GKE Overview](docs/README_GKE.md)** - Features and cost estimation
+
+### What's Included in GKE Deployment
+
+- ✅ **Auto-scaling**: 2-10 replicas based on load
+- ✅ **High Availability**: Multi-zone deployment
+- ✅ **SSL/HTTPS**: Google-managed certificates (with domain)
+- ✅ **Monitoring**: Cloud Monitoring & Logging
+- ✅ **CI/CD**: Automated deployments
+- ✅ **Cost Optimized**: ~$520-900/month with scaling
 
 ---
 

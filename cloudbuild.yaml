@@ -1,0 +1,560 @@
+# ============================================================================
+# Cloud Build Configuration for Solar Facades
+
+## 📋 Resumen# ============================================================================
+
+# This file defines the CI/CD pipeline that:
+
+Este documento explica cómo configurar el despliegue automático de tu aplicación Solar Facades cada vez que hagas push a la rama `main` en GitHub.# 1. Builds Docker images for backend, ingestor, and alert-monitor
+
+# 2. Pushes images to Artifact Registry
+
+## ✅ Estado Actual# 3. Deploys to GKE cluster
+
+# ============================================================================
+
+- ✅ `cloudbuild.yaml` configurado y actualizado con la IP correcta del backend
+
+- ✅ Cloud Build API habilitadaoptions:
+
+- ✅ Permisos configurados para Cloud Build  machineType: 'N1_HIGHCPU_8'
+
+  logging: CLOUD_LOGGING_ONLY
+
+## 🔧 Configuración del Trigger (MANUAL)
+
+substitutions:
+
+Cloud Build necesita conectarse a tu repositorio de GitHub. Esto se debe hacer desde la consola web:  _REGION: us-central1
+
+  _CLUSTER_NAME: solar-facades-cluster
+
+### Paso 1: Conectar GitHub con Cloud Build  _NAMESPACE: solar-facades-prod
+
+  _ARTIFACT_REGISTRY: ${_REGION}-docker.pkg.dev/${PROJECT_ID}/solar-facades
+
+1. Ve a: https://console.cloud.google.com/cloud-build/triggers?project=bicpv-477720
+
+steps:
+
+2. Haz clic en **"CREATE TRIGGER"** (Crear Activador)  # ============================================================================
+
+  # Step 1: Build Backend Image
+
+3. Selecciona **"Connect Repository"** (Conectar Repositorio)  # ============================================================================
+
+  - name: 'gcr.io/cloud-builders/docker'
+
+4. Selecciona **GitHub** como fuente    id: 'build-backend'
+
+    args:
+
+5. Autentica con tu cuenta de GitHub (Alkran93)      - 'build'
+
+      - '-t'
+
+6. Selecciona el repositorio: **Project-BICPV**      - '${_ARTIFACT_REGISTRY}/backend:${SHORT_SHA}'
+
+      - '-t'
+
+7. Haz clic en **"Connect"** (Conectar)      - '${_ARTIFACT_REGISTRY}/backend:latest'
+
+      - '-f'
+
+### Paso 2: Crear el Trigger      - 'backend/Dockerfile.prod'
+
+      - './backend'
+
+Una vez conectado el repositorio, configura el trigger:
+
+  # ============================================================================
+
+**Configuración del Trigger:**  # Step 2: Build Ingestor Image
+
+- **Name:** `solar-facades-deploy`  # ============================================================================
+
+- **Event:** Push to a branch  - name: 'gcr.io/cloud-builders/docker'
+
+- **Source:**    id: 'build-ingestor'
+
+  - Repository: `Alkran93/Project-BICPV`    args:
+
+  - Branch: `^main$` (regex pattern)      - 'build'
+
+- **Configuration:**      - '-t'
+
+  - Type: Cloud Build configuration file      - '${_ARTIFACT_REGISTRY}/ingestor:${SHORT_SHA}'
+
+  - Location: `/cloudbuild.yaml`      - '-t'
+
+- **Advanced (opcional):**      - '${_ARTIFACT_REGISTRY}/ingestor:latest'
+
+  - Region: `us-central1`      - '-f'
+
+  - Service account: Default      - 'ingestor/Dockerfile.prod'
+
+      - './ingestor'
+
+Haz clic en **"CREATE"** (Crear)
+
+  # ============================================================================
+
+## 🎯 ¿Cómo Funciona?  # Step 3: Build Alert Monitor Image
+
+  # ============================================================================
+
+Después de configurar el trigger:  - name: 'gcr.io/cloud-builders/docker'
+
+    id: 'build-alert-monitor'
+
+1. **Haces cambios** en tu código local    args:
+
+2. **Commit y push** a la rama `main`:      - 'build'
+
+   ```bash      - '-t'
+
+   git add .      - '${_ARTIFACT_REGISTRY}/alert-monitor:${SHORT_SHA}'
+
+   git commit -m "Tu mensaje de commit"      - '-t'
+
+   git push origin main      - '${_ARTIFACT_REGISTRY}/alert-monitor:latest'
+
+   ```      - '-f'
+
+3. **Automáticamente** Cloud Build:      - 'Dockerfile.alert-monitor'
+
+   - 🔨 Construye las 4 imágenes Docker (backend, frontend, ingestor, alert-monitor)      - '.'
+
+   - 📤 Las sube a Artifact Registry
+
+   - 🚀 Actualiza los deployments en GKE  # ============================================================================
+
+   - ⏳ Espera a que los rollouts se completen  # Step 4: Build Frontend Image
+
+   - ✅ Verifica que los pods estén funcionando  # ============================================================================
+
+  - name: 'gcr.io/cloud-builders/docker'
+
+**Tiempo estimado:** 10-15 minutos por despliegue completo    id: 'build-frontend'
+
+    args:
+
+## 📊 Monitorear Despliegues      - 'build'
+
+      - '-t'
+
+### Ver el progreso de un build:      - '${_ARTIFACT_REGISTRY}/frontend:${SHORT_SHA}'
+
+https://console.cloud.google.com/cloud-build/builds?project=bicpv-477720      - '-t'
+
+      - '${_ARTIFACT_REGISTRY}/frontend:latest'
+
+### Desde la terminal:      - '--build-arg'
+
+```bash      - 'VITE_API_URL=http://34.135.241.88:8000'
+
+# Ver los últimos builds      - '-f'
+
+gcloud builds list --limit=5 --project=bicpv-477720      - 'frontend/Dockerfile.prod'
+
+      - './frontend'
+
+# Ver logs de un build específico
+
+gcloud builds log <BUILD_ID> --project=bicpv-477720  # ============================================================================
+
+  # Step 5: Push Backend Image
+
+# Ver builds en tiempo real  # ============================================================================
+
+gcloud builds list --ongoing --project=bicpv-477720  - name: 'gcr.io/cloud-builders/docker'
+
+```    id: 'push-backend'
+
+    args:
+
+## 🛠️ Despliegue Manual (sin push)      - 'push'
+
+      - '--all-tags'
+
+Si necesitas desplegar manualmente sin hacer push:      - '${_ARTIFACT_REGISTRY}/backend'
+
+    waitFor: ['build-backend']
+
+```bash
+
+# Desde el directorio raíz del proyecto  # ============================================================================
+
+gcloud builds submit --config=cloudbuild.yaml --project=bicpv-477720  # Step 6: Push Ingestor Image
+
+```  # ============================================================================
+
+  - name: 'gcr.io/cloud-builders/docker'
+
+## 🔄 Workflow Completo    id: 'push-ingestor'
+
+    args:
+
+```      - 'push'
+
+┌─────────────────┐      - '--all-tags'
+
+│  git push main  │      - '${_ARTIFACT_REGISTRY}/ingestor'
+
+└────────┬────────┘    waitFor: ['build-ingestor']
+
+         │
+
+         ▼  # ============================================================================
+
+┌─────────────────────────┐  # Step 7: Push Alert Monitor Image
+
+│  Cloud Build Trigger    │  # ============================================================================
+
+│  (Automático)           │  - name: 'gcr.io/cloud-builders/docker'
+
+└────────┬────────────────┘    id: 'push-alert-monitor'
+
+         │    args:
+
+         ▼      - 'push'
+
+┌─────────────────────────┐      - '--all-tags'
+
+│  Build Docker Images    │      - '${_ARTIFACT_REGISTRY}/alert-monitor'
+
+│  - backend              │    waitFor: ['build-alert-monitor']
+
+│  - frontend             │
+
+│  - ingestor             │  # ============================================================================
+
+│  - alert-monitor        │  # Step 8: Push Frontend Image
+
+└────────┬────────────────┘  # ============================================================================
+
+         │  - name: 'gcr.io/cloud-builders/docker'
+
+         ▼    id: 'push-frontend'
+
+┌─────────────────────────┐    args:
+
+│  Push to Artifact       │      - 'push'
+
+│  Registry               │      - '--all-tags'
+
+└────────┬────────────────┘      - '${_ARTIFACT_REGISTRY}/frontend'
+
+         │    waitFor: ['build-frontend']
+
+         ▼
+
+┌─────────────────────────┐  # ============================================================================
+
+│  Update GKE             │  # Step 9: Get GKE Credentials
+
+│  Deployments            │  # ============================================================================
+
+└────────┬────────────────┘  - name: 'gcr.io/cloud-builders/gcloud'
+
+         │    id: 'get-credentials'
+
+         ▼    args:
+
+┌─────────────────────────┐      - 'container'
+
+│  Rollout & Verify       │      - 'clusters'
+
+│  ✅ Pods Running        │      - 'get-credentials'
+
+└─────────────────────────┘      - '${_CLUSTER_NAME}'
+
+```      - '--region=${_REGION}'
+
+    waitFor: ['-']
+
+## 🎛️ Configuración Avanzada (Opcional)
+
+  # ============================================================================
+
+### Variables de Entorno  # Step 10: Update Backend Deployment
+
+  # ============================================================================
+
+Puedes agregar variables en el trigger de Cloud Build:  - name: 'gcr.io/cloud-builders/kubectl'
+
+    id: 'deploy-backend'
+
+```yaml    args:
+
+substitutions:      - 'set'
+
+  _BACKEND_REPLICAS: "2"      - 'image'
+
+  _FRONTEND_REPLICAS: "2"      - 'deployment/backend'
+
+  _ENVIRONMENT: "production"      - 'backend=${_ARTIFACT_REGISTRY}/backend:${SHORT_SHA}'
+
+```      - '-n'
+
+      - '${_NAMESPACE}'
+
+### Notificaciones    env:
+
+      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+
+Para recibir notificaciones de Slack/Email cuando falla un build:      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+
+    waitFor: ['push-backend', 'get-credentials']
+
+1. Ve a: https://console.cloud.google.com/cloud-build/settings/notifiers?project=bicpv-477720
+
+2. Configura un notifier (Slack, Email, etc.)  # ============================================================================
+
+  # Step 11: Update Ingestor Deployment
+
+## 🔐 Secretos y Seguridad  # ============================================================================
+
+  - name: 'gcr.io/cloud-builders/kubectl'
+
+Los secretos (contraseñas, URLs) NO se incluyen en `cloudbuild.yaml`.    id: 'deploy-ingestor'
+
+Ya están configurados en:    args:
+
+- **Secret Manager:** Contraseñas de DB, Redis      - 'set'
+
+- **Kubernetes Secrets:** Dentro del cluster      - 'image'
+
+      - 'deployment/ingestor'
+
+## 📝 Notas Importantes      - 'ingestor=${_ARTIFACT_REGISTRY}/ingestor:${SHORT_SHA}'
+
+      - '-n'
+
+1. **Primera vez:** Después de crear el trigger, haz un commit dummy para probar:      - '${_NAMESPACE}'
+
+   ```bash    env:
+
+   git commit --allow-empty -m "Test CI/CD pipeline"      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+
+   git push origin main      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+
+   ```    waitFor: ['push-ingestor', 'get-credentials']
+
+
+
+2. **Frontend:** Ya está configurado para usar `http://34.135.241.88:8000` como backend  # ============================================================================
+
+  # Step 12: Update Alert Monitor Deployment
+
+3. **Dockerfiles:** Usa `Dockerfile.prod` en lugar de `Dockerfile` para todos los servicios  # ============================================================================
+
+  - name: 'gcr.io/cloud-builders/kubectl'
+
+4. **Costos:** Cloud Build tiene 120 minutos gratis por día. Cada despliegue toma ~10-15 min.    id: 'deploy-alert-monitor'
+
+    args:
+
+## 🆘 Troubleshooting      - 'set'
+
+      - 'image'
+
+### Error: "Repository not found"      - 'deployment/alert-monitor'
+
+- Verifica que conectaste el repo correcto en la consola de Cloud Build      - 'alert-monitor=${_ARTIFACT_REGISTRY}/alert-monitor:${SHORT_SHA}'
+
+- Asegúrate de haber dado permisos de acceso a Cloud Build en GitHub      - '-n'
+
+      - '${_NAMESPACE}'
+
+### Error: "Permission denied to GKE"    env:
+
+```bash      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+
+# Volver a dar permisos      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+
+PROJECT_NUMBER=$(gcloud projects describe bicpv-477720 --format='value(projectNumber)')    waitFor: ['push-alert-monitor', 'get-credentials']
+
+gcloud projects add-iam-policy-binding bicpv-477720 \
+
+  --member=serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com \  # ============================================================================
+
+  --role=roles/container.developer  # Step 13: Update Frontend Deployment
+
+```  # ============================================================================
+
+  - name: 'gcr.io/cloud-builders/kubectl'
+
+### Build falla en "get-credentials"    id: 'deploy-frontend'
+
+- Verifica que el nombre del cluster sea correcto: `solar-facades-cluster`    args:
+
+- Verifica la región: `us-central1`      - 'set'
+
+      - 'image'
+
+### Frontend no se conecta al backend después del despliegue      - 'deployment/frontend'
+
+- Verifica que `VITE_API_URL` en `cloudbuild.yaml` tenga la IP correcta      - 'frontend=${_ARTIFACT_REGISTRY}/frontend:${SHORT_SHA}'
+
+- Rebuild manual: `docker build --build-arg VITE_API_URL=http://34.135.241.88:8000 ...`      - '-n'
+
+      - '${_NAMESPACE}'
+
+## ✅ Checklist de Configuración    env:
+
+      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+
+- [ ] Cloud Build API habilitada      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+
+- [ ] Permisos de Cloud Build configurados    waitFor: ['push-frontend', 'get-credentials']
+
+- [ ] Repositorio GitHub conectado a Cloud Build
+
+- [ ] Trigger creado y configurado  # ============================================================================
+
+- [ ] IP del backend actualizada en `cloudbuild.yaml`  # Step 14: Wait for Backend Rollout
+
+- [ ] Primer despliegue de prueba exitoso  # ============================================================================  # ============================================================================
+
+  # Step 9: Update Ingestor Deployment
+
+---  # ============================================================================
+
+  - name: 'gcr.io/cloud-builders/kubectl'
+
+**Próximo Paso:** Conecta tu repositorio GitHub en la consola de Cloud Build y crea el trigger.    id: 'deploy-ingestor'
+
+    args:
+
+**Link directo:** https://console.cloud.google.com/cloud-build/triggers?project=bicpv-477720      - 'set'
+
+      - 'image'
+      - 'deployment/ingestor'
+      - 'ingestor=${_ARTIFACT_REGISTRY}/ingestor:${SHORT_SHA}'
+      - '-n'
+      - '${_NAMESPACE}'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+    waitFor: ['push-ingestor', 'get-credentials']
+
+  # ============================================================================
+  # Step 10: Update Alert Monitor Deployment
+  # ============================================================================
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'deploy-alert-monitor'
+    args:
+      - 'set'
+      - 'image'
+      - 'deployment/alert-monitor'
+      - 'alert-monitor=${_ARTIFACT_REGISTRY}/alert-monitor:${SHORT_SHA}'
+      - '-n'
+      - '${_NAMESPACE}'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+    waitFor: ['push-alert-monitor', 'get-credentials']
+
+  # ============================================================================
+  # Step 14: Wait for Backend Rollout
+  # ============================================================================
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'rollout-backend'
+    args:
+      - 'rollout'
+      - 'status'
+      - 'deployment/backend'
+      - '-n'
+      - '${_NAMESPACE}'
+      - '--timeout=5m'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+    waitFor: ['deploy-backend']
+
+  # ============================================================================
+  # Step 15: Wait for Ingestor Rollout
+  # ============================================================================
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'rollout-ingestor'
+    args:
+      - 'rollout'
+      - 'status'
+      - 'deployment/ingestor'
+      - '-n'
+      - '${_NAMESPACE}'
+      - '--timeout=5m'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+    waitFor: ['deploy-ingestor']
+
+  # ============================================================================
+  # Step 16: Wait for Alert Monitor Rollout
+  # ============================================================================
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'rollout-alert-monitor'
+    args:
+      - 'rollout'
+      - 'status'
+      - 'deployment/alert-monitor'
+      - '-n'
+      - '${_NAMESPACE}'
+      - '--timeout=5m'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+    waitFor: ['deploy-alert-monitor']
+
+  # ============================================================================
+  # Step 17: Wait for Frontend Rollout
+  # ============================================================================
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'rollout-frontend'
+    args:
+      - 'rollout'
+      - 'status'
+      - 'deployment/frontend'
+      - '-n'
+      - '${_NAMESPACE}'
+      - '--timeout=5m'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+    waitFor: ['deploy-frontend']
+
+  # ============================================================================
+  # Step 18: Verify Deployment
+  # ============================================================================
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'verify-deployment'
+    args:
+      - 'get'
+      - 'pods'
+      - '-n'
+      - '${_NAMESPACE}'
+      - '-o'
+      - 'wide'
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=${_REGION}'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}'
+    waitFor: ['rollout-backend', 'rollout-ingestor', 'rollout-alert-monitor', 'rollout-frontend']
+
+# ============================================================================
+# Images to be stored in Artifact Registry
+# ============================================================================
+images:
+  - '${_ARTIFACT_REGISTRY}/backend:${SHORT_SHA}'
+  - '${_ARTIFACT_REGISTRY}/backend:latest'
+  - '${_ARTIFACT_REGISTRY}/ingestor:${SHORT_SHA}'
+  - '${_ARTIFACT_REGISTRY}/ingestor:latest'
+  - '${_ARTIFACT_REGISTRY}/alert-monitor:${SHORT_SHA}'
+  - '${_ARTIFACT_REGISTRY}/alert-monitor:latest'
+  - '${_ARTIFACT_REGISTRY}/frontend:${SHORT_SHA}'
+  - '${_ARTIFACT_REGISTRY}/frontend:latest'
+
+# ============================================================================
+# Timeout Configuration
+# ============================================================================
+timeout: '1800s'

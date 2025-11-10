@@ -28,7 +28,8 @@ interface ExchangerDataPoint {
 }
 
 export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number }) {
-  const [temps, setTemps] = useState<ExchangerDataPoint[]>([]);
+  // Removed unused state variable - using inletReadings and outletReadings instead
+  // const [temps, setTemps] = useState<ExchangerDataPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("");
@@ -89,7 +90,7 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
       if (isMountedRef.current) {
         setInletReadings(inletNormalized);
         setOutletReadings(outletNormalized);
-        setTemps(inletNormalized);
+        // Removed setTemps(inletNormalized) - temps state variable was removed
         setLastUpdate(new Date().toLocaleString());
       }
     } catch (err) {

@@ -190,3 +190,57 @@ async def get_sensors_by_type(
     except Exception as e:
         # Raise an HTTP exception for unexpected errors
         raise HTTPException(status_code=500, detail="Error retrieving sensors")
+
+
+@router.get("/panel-temperature/{facade_id}")
+async def get_panel_temperature_by_module(
+    facade_id: str,
+    facade_type: Optional[str] = Query(None, description="Filter by facade type: 'refrigerada', 'no_refrigerada'"),
+    start: Optional[str] = Query(None, description="Start date in ISO8601 format"),
+    end: Optional[str] = Query(None, description="End date in ISO8601 format")
+):
+    """
+    Retrieves average panel temperatures per module (M1-M5) for a specific facade.
+    
+    Calculates the average of all temperature sensors per module:
+    - Module 1: Average of T_M1_1, T_M1_2, T_M1_3
+    - Module 2: Average of T_M2_1, T_M2_2, T_M2_3
+    - Module 3: Average of T_M3_1, T_M3_2, T_M3_3
+    - Module 4: Average of T_M4_1, T_M4_2, T_M4_3
+    - Module 5: Average of T_M5_1, T_M5_2, T_M5_3
+
+    Parameters:
+    - facade_id (str): ID of the facade. Required.
+    - facade_type (Optional[str]): Filter by facade type. Default: None (all types).
+    - start (Optional[str]): Start date/time for calculation period. Default: None.
+    - end (Optional[str]): End date/time for calculation period. Default: None.
+
+    Response:
+    - JSON object containing average temperatures per module.
+    - HTTP Status Codes:
+      - 200: Successful response with module temperature data.
+      - 404: No panel temperature data available.
+      - 500: Internal server error.
+
+    Errors:
+    - HTTPException (404): Raised if no data is available.
+    - HTTPException (500): Raised if an unexpected error occurs.
+    """
+    try:
+        result = await analytics_service.get_panel_temperature_by_module(
+            facade_id=facade_id,
+            facade_type=facade_type,
+            start=start,
+            end=end
+        )
+        
+        if not result or not result.get("modules"):
+            raise HTTPException(status_code=404, detail="No panel temperature data available")
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error retrieving panel temperatures: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving panel temperature data")
