@@ -12,6 +12,8 @@ import RefrigerantCycle from "./views/RefrigerantCycle";
 import AlertNotifications from "./views/AlertNotifications";
 import WaterTemperatures from "./views/WaterTemperatures";
 import ExportCSV from "./views/ExportCSV";
+import EfficiencyMetricsView from "./views/EfficiencyMetricsView";
+import PowerRadianceChart from "./views/PowerRadianceChart";
 
 type PanelData = {
   id: string;
@@ -38,6 +40,8 @@ export default function App() {
   const [showTempComparison, setShowTempComparison] = useState(false);
   const [showRefrigerantCycle, setShowRefrigerantCycle] = useState(false);
   const [showWaterTemps, setShowWaterTemps] = useState(false);
+  const [showEfficiencyMetrics, setShowEfficiencyMetrics] = useState(false);
+  const [showPowerRadiance, setShowPowerRadiance] = useState(false);
 
   // Datos de prueba (puedes moverlos a un contexto o fetch real)
   const panelsData: PanelData[] = [
@@ -67,6 +71,9 @@ export default function App() {
     setShowTempComparison(false);
     setShowRefrigerantCycle(false);
     setShowWaterTemps(false);
+    setShowWaterTemps(false);
+    setShowEfficiencyMetrics(false);
+    setShowPowerRadiance(false);
   };
 
   const handlePanelClick = (panel: PanelData) => {
@@ -125,6 +132,15 @@ export default function App() {
     setShowWaterTemps(true);
   };
 
+  const handleEfficiencyMetricsClick = () => {
+    resetViews();
+    setShowEfficiencyMetrics(true);
+  };
+
+  const handlePowerRadianceClick = () => {
+    resetViews();
+    setShowPowerRadiance(true);
+  };
 
   return (
     <div className="app-root">
@@ -137,6 +153,8 @@ export default function App() {
         onTempComparisonClick={handleTempComparisonClick}
         onRefrigerantCycleClick={handleRefrigerantCycleClick}
         onWaterTempsClick={handleWaterTempsClick}
+        onEfficiencyMetricsClick={handleEfficiencyMetricsClick}
+        onPowerRadianceClick={handlePowerRadianceClick}
       />
 
       <div className="content">
@@ -158,8 +176,14 @@ export default function App() {
         {/* ✅ HU12 - Temperatura del agua en el intercambiador */}
         {showWaterTemps && <WaterTemperatures />}
 
+        {/* ✅ HU16 - Métricas de Eficiencia Energética */}
+        {showEfficiencyMetrics && <EfficiencyMetricsView />}
+
         {/* Comparación térmica general existente */}
         {showComparison && <ComparisonChart onBack={handleBackToOverview} id="1" />}
+
+        {/* ✅ HU07 - Gráfico Potencia vs Irradiancia */}
+        {showPowerRadiance && <PowerRadianceChart facadeId="1" />}
 
         {/* Análisis del sistema */}
         {showSystemAnalysis && selectedPanel && (
@@ -196,7 +220,9 @@ export default function App() {
           !showCSVExport &&
           !showTempComparison &&
           !showRefrigerantCycle &&
-          !showWaterTemps && (
+          !showWaterTemps && 
+          !showEfficiencyMetrics &&
+          !showPowerRadiance && (
             <Home panelsData={panelsData} onPanelClick={handlePanelClick} />
           )}
       </div>

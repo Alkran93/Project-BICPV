@@ -64,15 +64,87 @@ interface RefrigerantCycleResponse {
   refrigeration_cycle: RefrigerantCycleRecord[];
 }
 
+interface PressureReading {
+  ts: string;
+  sensor_name: string;
+  value: number;
+  device_id: string;
+  facade_type: string;
+}
+
+interface PressureData {
+  sensor: string;
+  unit: string;
+  count: number;
+  readings: PressureReading[];
+}
+
+interface PressureResponse {
+  facade_id: string;
+  facade_type: string;
+  pressures: {
+    high_pressure: PressureData;
+    low_pressure: PressureData;
+  };
+}
+
 export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string }) {
   const [responseData, setResponseData] = useState<RefrigerantCycleResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const isMountedRef = useRef(true);
+  const [pressureData, setPressureData] = useState<PressureResponse | null>(null);
+  const [pressureLoading, setPressureLoading] = useState(false);
+  const [pressureError, setPressureError] = useState<string | null>(null);
 
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+
+  const fetchPressureData = async () => {
+    if (!isMountedRef.current) return;
+
+    setPressureLoading(true);
+    setPressureError(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append("start", startDate);
+      if (endDate) params.append("end", endDate);
+
+      const queryString = params.toString();
+      const url = `http://localhost:8000/control/pressure/${facadeId}${queryString ? `?${queryString}` : ''}`;
+      console.log(`📊 [${new Date().toLocaleTimeString()}] Fetching pressure data from: ${url}`);
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error("No hay datos de presión disponibles para esta fachada.");
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data: PressureResponse = await response.json();
+      console.log("📊 Pressure API response:", data);
+
+      if (isMountedRef.current) {
+        setPressureData(data);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      console.error("💥 Error fetching pressure data:", err);
+
+      if (isMountedRef.current) {
+        setPressureError(errorMessage);
+        setPressureData(null);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setPressureLoading(false);
+      }
+    }
+  };
 
   const fetchRefrigerantCycle = async () => {
     if (!isMountedRef.current) return;
@@ -160,6 +232,7 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
     console.log("🔄 RefrigerantCycle mounted");
     isMountedRef.current = true;
     fetchRefrigerantCycle();
+    fetchPressureData();
 
     return () => {
       isMountedRef.current = false;
@@ -169,8 +242,145 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
   useEffect(() => {
     if (isMountedRef.current) {
       fetchRefrigerantCycle();
+      fetchPressureData();
     }
   }, [startDate, endDate]);
+
+  // Función para calcular estadísticas de presión
+  const getPressureStats = (readings: PressureReading[]) => {
+    if (!readings || readings.length === 0) return null;
+    
+    const values = readings.map(r => r.value);
+    const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    
+    return { avg, min, max, count: readings.length };
+  };
+
+  // Datos para gráficos de presión
+  const pressureChartData = {
+    labels: pressureData ? ["Presión Alta", "Presión Baja"] : [],
+    datasets: [
+      {
+        label: "Promedio (PSI)",
+        data: pressureData ? [
+          getPressureStats(pressureData.pressures.high_pressure.readings)?.avg || 0,
+          getPressureStats(pressureData.pressures.low_pressure.readings)?.avg || 0
+        ] : [],
+        backgroundColor: ["rgba(220, 53, 69, 0.8)", "rgba(13, 110, 253, 0.8)"],
+        borderColor: ["#dc3545", "#0d6efd"],
+        borderWidth: 2,
+        borderRadius: 8,
+      },
+      {
+        label: "Máxima (PSI)",
+        data: pressureData ? [
+          getPressureStats(pressureData.pressures.high_pressure.readings)?.max || 0,
+          getPressureStats(pressureData.pressures.low_pressure.readings)?.max || 0
+        ] : [],
+        backgroundColor: ["rgba(220, 53, 69, 0.4)", "rgba(13, 110, 253, 0.4)"],
+        borderColor: ["#dc3545", "#0d6efd"],
+        borderWidth: 1,
+        borderRadius: 4,
+      }
+    ],
+  };
+
+  const pressureChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: { display: true, position: "top" as const },
+      title: {
+        display: true,
+        text: "Presiones del Sistema de Refrigeración",
+        font: { size: 16, weight: "bold" as const },
+      },
+      tooltip: {
+        callbacks: {
+          label: function (context: any) {
+            const pressureType = context.label;
+            const highStats = pressureData ? getPressureStats(pressureData.pressures.high_pressure.readings) : null;
+            const lowStats = pressureData ? getPressureStats(pressureData.pressures.low_pressure.readings) : null;
+            
+            if (context.dataset.label === "Promedio (PSI)") {
+              return `Promedio: ${context.raw.toFixed(2)} PSI`;
+            } else {
+              return `Máxima: ${context.raw.toFixed(2)} PSI`;
+            }
+          },
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: "Presión (PSI)",
+          font: { size: 14, weight: "bold" as const },
+        },
+      },
+    },
+  };
+
+  // Gráfico de tendencia temporal de presiones
+  const pressureTrendData = {
+    labels: pressureData?.pressures.high_pressure.readings
+      .slice(0, 20) // Mostrar solo los últimos 20 puntos para claridad
+      .map(reading => new Date(reading.ts).toLocaleTimeString()) || [],
+    datasets: [
+      {
+        label: "Presión Alta",
+        data: pressureData?.pressures.high_pressure.readings
+          .slice(0, 20)
+          .map(reading => reading.value) || [],
+        borderColor: "#dc3545",
+        backgroundColor: "rgba(220, 53, 69, 0.1)",
+        tension: 0.4,
+        fill: false,
+      },
+      {
+        label: "Presión Baja",
+        data: pressureData?.pressures.low_pressure.readings
+          .slice(0, 20)
+          .map(reading => reading.value) || [],
+        borderColor: "#0d6efd",
+        backgroundColor: "rgba(13, 110, 253, 0.1)",
+        tension: 0.4,
+        fill: false,
+      },
+    ],
+  };
+
+  const pressureTrendOptions = {
+    responsive: true,
+    plugins: {
+      legend: { display: true, position: "top" as const },
+      title: {
+        display: true,
+        text: "Tendencia de Presiones en el Tiempo",
+        font: { size: 16, weight: "bold" as const },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: "Presión (PSI)",
+          font: { size: 14, weight: "bold" as const },
+        },
+      },
+      x: {
+        title: {
+          display: true,
+          text: "Tiempo",
+          font: { size: 14, weight: "bold" as const },
+        },
+      },
+    },
+  };
 
   const cycleData = responseData?.refrigeration_cycle || [];
 
@@ -560,6 +770,165 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
                 {stats.totalSamples.toLocaleString()}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Sección de Presiones - NUEVA para HU11 */}
+        {!pressureLoading && !pressureError && pressureData && (
+          <div style={{ 
+            backgroundColor: "white", 
+            padding: "2rem", 
+            borderRadius: "16px", 
+            boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+            marginBottom: "2rem"
+          }}>
+            <h3 style={{ 
+              margin: "0 0 1.5rem 0", 
+              fontSize: "1.5rem", 
+              fontWeight: "bold", 
+              color: "#2c3e50",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem"
+            }}>
+              📊 Presiones del Sistema
+            </h3>
+
+            {/* Indicadores de presión */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "2rem" }}>
+              {pressureData.pressures.high_pressure && (
+                <div style={{ 
+                  padding: "1.5rem", 
+                  backgroundColor: getPressureStats(pressureData.pressures.high_pressure.readings)?.avg || 0 > 200 ? "#f8d7da" : "#d1ecf1",
+                  borderRadius: "12px",
+                  border: `3px solid ${getPressureStats(pressureData.pressures.high_pressure.readings)?.avg || 0 > 200 ? "#f5c6cb" : "#bee5eb"}`,
+                  textAlign: "center"
+                }}>
+                  <h4 style={{ margin: "0 0 0.5rem 0", color: "#0c5460", fontSize: "1.1rem" }}>
+                    🔥 Presión Alta
+                  </h4>
+                  <p style={{ margin: 0, fontSize: "2.5rem", fontWeight: "bold", color: "#0c5460" }}>
+                    {(getPressureStats(pressureData.pressures.high_pressure.readings)?.avg || 0).toFixed(1)} PSI
+                  </p>
+                  <div style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "#6c757d" }}>
+                    <div>Mín: {(getPressureStats(pressureData.pressures.high_pressure.readings)?.min || 0).toFixed(1)} PSI</div>
+                    <div>Máx: {(getPressureStats(pressureData.pressures.high_pressure.readings)?.max || 0).toFixed(1)} PSI</div>
+                    <div>Muestras: {pressureData.pressures.high_pressure.count}</div>
+                  </div>
+                  {getPressureStats(pressureData.pressures.high_pressure.readings)?.avg || 0 > 200 && (
+                    <div style={{ 
+                      marginTop: "0.5rem", 
+                      padding: "0.25rem 0.5rem", 
+                      backgroundColor: "#f8d7da",
+                      color: "#721c24",
+                      borderRadius: "4px",
+                      fontSize: "0.8rem",
+                      fontWeight: "bold"
+                    }}>
+                      ⚠️ PRESIÓN ELEVADA
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {pressureData.pressures.low_pressure && (
+                <div style={{ 
+                  padding: "1.5rem", 
+                  backgroundColor: getPressureStats(pressureData.pressures.low_pressure.readings)?.avg || 0 < 20 ? "#f8d7da" : "#d1ecf1",
+                  borderRadius: "12px",
+                  border: `3px solid ${getPressureStats(pressureData.pressures.low_pressure.readings)?.avg || 0 < 20 ? "#f5c6cb" : "#bee5eb"}`,
+                  textAlign: "center"
+                }}>
+                  <h4 style={{ margin: "0 0 0.5rem 0", color: "#0c5460", fontSize: "1.1rem" }}>
+                    ❄️ Presión Baja
+                  </h4>
+                  <p style={{ margin: 0, fontSize: "2.5rem", fontWeight: "bold", color: "#0c5460" }}>
+                    {(getPressureStats(pressureData.pressures.low_pressure.readings)?.avg || 0).toFixed(1)} PSI
+                  </p>
+                  <div style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "#6c757d" }}>
+                    <div>Mín: {(getPressureStats(pressureData.pressures.low_pressure.readings)?.min || 0).toFixed(1)} PSI</div>
+                    <div>Máx: {(getPressureStats(pressureData.pressures.low_pressure.readings)?.max || 0).toFixed(1)} PSI</div>
+                    <div>Muestras: {pressureData.pressures.low_pressure.count}</div>
+                  </div>
+                  {getPressureStats(pressureData.pressures.low_pressure.readings)?.avg || 0 < 20 && (
+                    <div style={{ 
+                      marginTop: "0.5rem", 
+                      padding: "0.25rem 0.5rem", 
+                      backgroundColor: "#f8d7da",
+                      color: "#721c24",
+                      borderRadius: "4px",
+                      fontSize: "0.8rem",
+                      fontWeight: "bold"
+                    }}>
+                      ⚠️ PRESIÓN BAJA
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Gráficos de presión */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", marginBottom: "2rem" }}>
+              <div style={{ 
+                backgroundColor: "#f8f9fa", 
+                padding: "1.5rem", 
+                borderRadius: "12px",
+                border: "1px solid #e9ecef"
+              }}>
+                <Bar data={pressureChartData} options={pressureChartOptions} height={250} />
+              </div>
+              
+              <div style={{ 
+                backgroundColor: "#f8f9fa", 
+                padding: "1.5rem", 
+                borderRadius: "12px",
+                border: "1px solid #e9ecef"
+              }}>
+                <Line data={pressureTrendData} options={pressureTrendOptions} height={250} />
+              </div>
+            </div>
+
+            {/* Información del sistema */}
+            <div style={{ 
+              backgroundColor: "#e7f3ff", 
+              padding: "1rem", 
+              borderRadius: "8px",
+              border: "1px solid #b3d9ff"
+            }}>
+              <h4 style={{ margin: "0 0 0.5rem 0", color: "#0066cc" }}>💡 Información del Sistema</h4>
+              <div style={{ fontSize: "0.9rem", color: "#0066cc" }}>
+                <strong>Unidad:</strong> PSI (Libras por Pulgada Cuadrada) | 
+                <strong> Sensor Alta:</strong> {pressureData.pressures.high_pressure.sensor} | 
+                <strong> Sensor Baja:</strong> {pressureData.pressures.low_pressure.sensor}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Estados de carga y error para presiones */}
+        {pressureLoading && (
+          <div style={{ 
+            padding: "2rem", 
+            textAlign: "center", 
+            backgroundColor: "white", 
+            borderRadius: "12px",
+            marginBottom: "2rem"
+          }}>
+            <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>📊</div>
+            <h3 style={{ color: "#6c757d", margin: 0 }}>Cargando datos de presión...</h3>
+          </div>
+        )}
+
+        {pressureError && (
+          <div style={{ 
+            padding: "1.5rem", 
+            backgroundColor: "#f8d7da", 
+            border: "2px solid #f5c6cb", 
+            borderRadius: "8px", 
+            color: "#721c24", 
+            marginBottom: "2rem" 
+          }}>
+            <strong>Error en datos de presión:</strong> {pressureError}
           </div>
         )}
 

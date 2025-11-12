@@ -7,6 +7,7 @@ import {
   Thermometer,
   Activity,
   AlertTriangle,
+  Gauge,
 } from "lucide-react";
 
 type SidebarProps = {
@@ -17,6 +18,8 @@ type SidebarProps = {
   onTempComparisonClick?: () => void;
   onRefrigerantCycleClick?: () => void;
   onWaterTempsClick?: () => void;
+  onEfficiencyMetricsClick?: () => void;
+  onPowerRadianceClick?: () => void;
 };
 
 export default function Sidebar({
@@ -27,6 +30,8 @@ export default function Sidebar({
   onTempComparisonClick,
   onRefrigerantCycleClick,
   onWaterTempsClick,
+  onEfficiencyMetricsClick,
+  onPowerRadianceClick,
 }: SidebarProps) {
   return (
     <aside className="sidebar" aria-label="Sidebar navigation">
@@ -64,6 +69,27 @@ export default function Sidebar({
             }}
           >
             <Bell size={16} /> Alertas Automáticas
+          </a>
+          
+          {/* === SECCIÓN EFICIENCIA Y POTENCIA === */}
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onEfficiencyMetricsClick?.();
+            }}
+          >
+            <Gauge size={16} /> Métricas de Eficiencia
+          </a>
+          
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onPowerRadianceClick?.();
+            }}
+          >
+            <BarChart3 size={16} /> Potencia-Irradiancia
           </a>
 
           {/* === SECCIÓN ANÁLISIS TÉRMICO === */}
