@@ -45,7 +45,7 @@ export default function AlertsHistory() {
       if (facadeTypeFilter) params.append("facade_type", facadeTypeFilter);
       params.append("hours", hoursFilter.toString());
 
-      const url = `http://localhost:8000/alerts/anomalies?${params.toString()}`;
+      const url = `http://34.135.241.88:8000/alerts/anomalies?${params.toString()}`;
       console.log(`📜 [${new Date().toLocaleTimeString()}] Fetching alerts history from: ${url}`);
 
       const response = await fetch(url);

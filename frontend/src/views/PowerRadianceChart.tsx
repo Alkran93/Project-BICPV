@@ -77,7 +77,7 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
       }
 
       const queryString = params.toString();
-      const url = `http://localhost:8000/chart-data/power-irradiance/${facadeId}${queryString ? `?${queryString}` : ''}`;
+      const url = `http://34.135.241.88:8000/chart-data/power-irradiance/${facadeId}${queryString ? `?${queryString}` : ''}`;
       
       console.log(`⚡ [${new Date().toLocaleTimeString()}] Fetching power/radiance data from: ${url}`);
 
@@ -115,33 +115,94 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
   };
 
   const transformPowerIrradianceData = (apiData: any): PowerRadianceResponse => {
-    // Extraer series de datos del response
-    const irradianceSeries = apiData.series.find((s: any) => s.name === "irradiance");
+    console.log("📊 Transformando datos de API:", apiData);
+    
+    // Buscar las series por nombre exacto según la documentación
+    const irradianceSeries = apiData.series.find((s: any) => s.name === "Irradiance");
     const powerSeries = apiData.series.find((s: any) => s.name === "Generated Power");
     
     const dataPoints: PowerRadianceDataPoint[] = [];
     
+    console.log("🔍 Series encontradas:", {
+      irradiance: irradianceSeries?.name,
+      power: powerSeries?.name,
+      irradianceCount: irradianceSeries?.data?.length,
+      powerCount: powerSeries?.data?.length
+    });
+
+    // Si tenemos ambas series, combinarlas por timestamp
     if (irradianceSeries && powerSeries) {
-      const minLength = Math.min(irradianceSeries.data.length, powerSeries.data.length);
-      
-      for (let i = 0; i < minLength; i++) {
-        dataPoints.push({
-          timestamp: irradianceSeries.data[i].ts || powerSeries.data[i].ts,
-          power_generated: powerSeries.data[i].value,
-          irradiance: irradianceSeries.data[i].value
-        });
+      // Crear un mapa de irradiancia por timestamp para fácil acceso
+      const irradianceMap = new Map();
+      irradianceSeries.data.forEach((point: any) => {
+        irradianceMap.set(point.ts, point.value);
+      });
+
+      // Para cada punto de potencia, buscar la irradiancia correspondiente
+      powerSeries.data.forEach((point: any) => {
+        const irradianceValue = irradianceMap.get(point.ts);
+        if (irradianceValue !== undefined) {
+          dataPoints.push({
+            timestamp: point.ts,
+            power_generated: point.value,
+            irradiance: irradianceValue
+          });
+        }
+      });
+
+      // Si no hay coincidencias, usar el método de índice (fallback)
+      if (dataPoints.length === 0) {
+        const minLength = Math.min(irradianceSeries.data.length, powerSeries.data.length);
+        for (let i = 0; i < minLength; i++) {
+          dataPoints.push({
+            timestamp: irradianceSeries.data[i].ts || powerSeries.data[i].ts,
+            power_generated: powerSeries.data[i].value,
+            irradiance: irradianceSeries.data[i].value
+          });
+        }
       }
     }
-    
+    // Si solo tenemos irradiancia, calcular la potencia
+    else if (irradianceSeries && !powerSeries) {
+      const panelArea = apiData.calculation?.panel_area_m2 || 10;
+      const efficiency = apiData.calculation?.efficiency || 0.15;
+      
+      irradianceSeries.data.forEach((point: any) => {
+        const powerGenerated = point.value * panelArea * efficiency;
+        dataPoints.push({
+          timestamp: point.ts,
+          power_generated: powerGenerated,
+          irradiance: point.value
+        });
+      });
+    }
+    // Si solo tenemos potencia
+    else if (!irradianceSeries && powerSeries) {
+      powerSeries.data.forEach((point: any) => {
+        dataPoints.push({
+          timestamp: point.ts,
+          power_generated: point.value,
+          irradiance: 0
+        });
+      });
+    }
+
+    console.log("📈 Puntos de datos transformados:", dataPoints.length);
+
+    // Calcular resumen
+    const totalPower = dataPoints.reduce((sum, point) => sum + point.power_generated, 0);
+    const avgIrradiance = dataPoints.length > 0 ? 
+      dataPoints.reduce((sum, point) => sum + point.irradiance, 0) / dataPoints.length : 0;
+
     return {
-      facade_id: apiData.facade_id,
+      facade_id: apiData.facade_id || facadeId,
       facade_type: apiData.facade_type || "no_refrigerada",
       data: dataPoints,
       summary: {
-        total_power: dataPoints.reduce((sum, point) => sum + point.power_generated, 0),
-        avg_irradiance: dataPoints.reduce((sum, point) => sum + point.irradiance, 0) / dataPoints.length,
-        max_power: Math.max(...dataPoints.map(p => p.power_generated)),
-        max_irradiance: Math.max(...dataPoints.map(p => p.irradiance)),
+        total_power: totalPower,
+        avg_irradiance: avgIrradiance,
+        max_power: dataPoints.length > 0 ? Math.max(...dataPoints.map(p => p.power_generated)) : 0,
+        max_irradiance: dataPoints.length > 0 ? Math.max(...dataPoints.map(p => p.irradiance)) : 0,
         period: {
           start: dataPoints[0]?.timestamp || "",
           end: dataPoints[dataPoints.length - 1]?.timestamp || ""

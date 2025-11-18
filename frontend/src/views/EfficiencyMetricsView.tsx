@@ -1,39 +1,77 @@
-// EfficiencyMetricsView.tsx
 import React, { useState, useEffect } from 'react';
 import '../styles/EfficiencyMetricsView.css';
 
+// ✅ INTERFACES ACTUALIZADAS según el JSON real del backend
 interface EfficiencyData {
-  temperatureComparison?: {
-    refrigerated: number;
-    nonRefrigerated: number;
+  facade_id: string;
+  analysis_period: {
+    start: string;
+    end: string;
   };
-  thermalGain?: {
-    refrigerated: number;
-    nonRefrigerated: number;
+  thermal_analysis: {
+    refrigerada?: {
+      facade_type: string;
+      avg_panel_temperature: number;
+      avg_ambient_temperature: number;
+      temperature_difference: number;
+      estimated_thermal_gain_w: number;
+      panel_area_m2: number;
+      measurements_count: number;
+      interpretation: string;
+    };
+    no_refrigerada?: {
+      facade_type: string;
+      avg_panel_temperature: number;
+      avg_ambient_temperature: number;
+      temperature_difference: number;
+      estimated_thermal_gain_w: number;
+      panel_area_m2: number;
+      measurements_count: number;
+      interpretation: string;
+    };
   };
-  cop?: {
-    value: number;
-    coolingCapacity: number;
-    powerInput: number;
+  temperature_comparison: {
+    refrigerated_facade?: {
+      avg_temperature_celsius: number;
+      min_temperature_celsius: number;
+      max_temperature_celsius: number;
+      stddev_celsius: number;
+      temperature_range_celsius: number;
+      sample_count: number;
+    };
+    non_refrigerated_facade?: {
+      avg_temperature_celsius: number;
+      min_temperature_celsius: number;
+      max_temperature_celsius: number;
+      stddev_celsius: number;
+      temperature_range_celsius: number;
+      sample_count: number;
+    };
+    note: string;
   };
-  temperatureReduction?: {
-    reduction: number;
-    efficiencyImprovement: number;
+  cop_metrics: {
+    cop_available: boolean;
+    cop_average?: number;
+    efficiency_rating?: string;
+    cooling_capacity_avg_w?: number;
+    estimated_power_input_w?: number;
+    water_temp_delta_avg_celsius?: number;
+    water_flow_avg_lpm?: number;
+    measurements_count?: number;
+    note: string;
   };
-  efficiencyImprovement?: number;
-  pvPerformanceImpact?: number;
 }
 
 const EfficiencyMetricsView: React.FC = () => {
-  const [facadeId, setFacadeId] = useState<string>('2'); // ✅ Valor por defecto
+  const [facadeId, setFacadeId] = useState<string>('2');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [efficiencyData, setEfficiencyData] = useState<EfficiencyData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
-  // ✅ CONSTANTE CON LA URL CORRECTA
-  const API_BASE_URL = "http://localhost:8000";
+  // ✅ Cambiar a localhost si es necesario
+  const API_BASE_URL = "http://34.135.241.88:8000";
 
   // Función para obtener el análisis completo de eficiencia
   const fetchEfficiencyAnalysis = async () => {
@@ -51,10 +89,9 @@ const EfficiencyMetricsView: React.FC = () => {
       if (endDate) params.append('end', endDate);
 
       const queryString = params.toString();
-      // ✅ URL CORREGIDA - sin doble ??
       const url = `${API_BASE_URL}/efficiency/${facadeId}${queryString ? `?${queryString}` : ''}`;
       
-      console.log(`📊 Fetching efficiency data from: ${url}`); // Para debugging
+      console.log(`📊 Fetching efficiency data from: ${url}`);
 
       const response = await fetch(url);
       
@@ -65,8 +102,8 @@ const EfficiencyMetricsView: React.FC = () => {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      console.log('📊 Efficiency data received:', data); // Para debugging
+      const data: EfficiencyData = await response.json();
+      console.log('📊 Efficiency data received:', data);
       setEfficiencyData(data);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al obtener los datos';
@@ -77,80 +114,15 @@ const EfficiencyMetricsView: React.FC = () => {
     }
   };
 
-  // ✅ Función para obtener COP específico
-  const fetchCOP = async () => {
-    if (!facadeId) return;
-
-    try {
-      const params = new URLSearchParams();
-      if (startDate) params.append('start', startDate);
-      if (endDate) params.append('end', endDate);
-
-      const response = await fetch(`${API_BASE_URL}/efficiency/${facadeId}/cop?${params}`);
-      if (response.ok) {
-        const copData = await response.json();
-        setEfficiencyData(prev => ({ ...prev, cop: copData }));
-      }
-    } catch (err) {
-      console.error('Error fetching COP:', err);
-    }
-  };
-
-  // ✅ Función para obtener ganancia térmica
-  const fetchThermalGain = async () => {
-    if (!facadeId) return;
-
-    try {
-      const params = new URLSearchParams();
-      if (startDate) params.append('start', startDate);
-      if (endDate) params.append('end', endDate);
-
-      const response = await fetch(`${API_BASE_URL}/efficiency/${facadeId}/thermal-gain?${params}`);
-      if (response.ok) {
-        const thermalData = await response.json();
-        setEfficiencyData(prev => ({ ...prev, thermalGain: thermalData }));
-      }
-    } catch (err) {
-      console.error('Error fetching thermal gain:', err);
-    }
-  };
-
-  // ✅ Función para obtener reducción de temperatura
-  const fetchTemperatureReduction = async () => {
-    if (!facadeId) return;
-
-    try {
-      const params = new URLSearchParams();
-      if (startDate) params.append('start', startDate);
-      if (endDate) params.append('end', endDate);
-
-      const response = await fetch(`${API_BASE_URL}/efficiency/${facadeId}/temperature-reduction?${params}`);
-      if (response.ok) {
-        const tempReductionData = await response.json();
-        setEfficiencyData(prev => ({ ...prev, temperatureReduction: tempReductionData }));
-      }
-    } catch (err) {
-      console.error('Error fetching temperature reduction:', err);
-    }
-  };
-
-  // ✅ Cargar todos los datos cuando cambie facadeId
+  // ✅ Cargar datos cuando cambie facadeId
   useEffect(() => {
     if (facadeId) {
       fetchEfficiencyAnalysis();
-      // También cargar los endpoints específicos si es necesario
-      fetchCOP();
-      fetchThermalGain();
-      fetchTemperatureReduction();
     }
   }, [facadeId]);
 
   const handleSearch = () => {
     fetchEfficiencyAnalysis();
-    // Recargar también los endpoints específicos
-    fetchCOP();
-    fetchThermalGain();
-    fetchTemperatureReduction();
   };
 
   const formatTemperature = (temp: number): string => {
@@ -159,6 +131,10 @@ const EfficiencyMetricsView: React.FC = () => {
 
   const formatPercentage = (value: number): string => {
     return `${value?.toFixed(1) || '0.0'}%`;
+  };
+
+  const formatPower = (power: number): string => {
+    return `${(power / 1000)?.toFixed(1) || '0.0'} kW`;
   };
 
   return (
@@ -216,124 +192,146 @@ const EfficiencyMetricsView: React.FC = () => {
       {/* Métricas de Eficiencia */}
       {efficiencyData && (
         <div className="metrics-grid">
-          {/* Comparación de Temperaturas */}
-          {efficiencyData.temperatureComparison && (
-            <div className="metric-card">
-              <h3>Comparación de Temperaturas</h3>
-              <div className="metric-comparison">
+          {/* ✅ COMPARACIÓN DE TEMPERATURAS - ACTUALIZADO */}
+          <div className="metric-card">
+            <h3>Comparación de Temperaturas</h3>
+            <div className="metric-comparison">
+              {efficiencyData.temperature_comparison.refrigerated_facade && (
                 <div className="metric-item">
-                  <span className="metric-label">Con Refrigeración:</span>
+                  <span className="metric-label">Fachada Refrigerada:</span>
                   <span className="metric-value refrigerated">
-                    {formatTemperature(efficiencyData.temperatureComparison.refrigerated)}
+                    {formatTemperature(efficiencyData.temperature_comparison.refrigerated_facade.avg_temperature_celsius)}
                   </span>
+                  <div className="metric-subtext">
+                    Rango: {formatTemperature(efficiencyData.temperature_comparison.refrigerated_facade.min_temperature_celsius)} - {formatTemperature(efficiencyData.temperature_comparison.refrigerated_facade.max_temperature_celsius)}
+                  </div>
                 </div>
+              )}
+              {efficiencyData.temperature_comparison.non_refrigerated_facade && (
                 <div className="metric-item">
-                  <span className="metric-label">Sin Refrigeración:</span>
+                  <span className="metric-label">Fachada No Refrigerada:</span>
                   <span className="metric-value non-refrigerated">
-                    {formatTemperature(efficiencyData.temperatureComparison.nonRefrigerated)}
+                    {formatTemperature(efficiencyData.temperature_comparison.non_refrigerated_facade.avg_temperature_celsius)}
                   </span>
+                  <div className="metric-subtext">
+                    Rango: {formatTemperature(efficiencyData.temperature_comparison.non_refrigerated_facade.min_temperature_celsius)} - {formatTemperature(efficiencyData.temperature_comparison.non_refrigerated_facade.max_temperature_celsius)}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
+            {efficiencyData.temperature_comparison.note && (
+              <div className="metric-note">
+                {efficiencyData.temperature_comparison.note}
+              </div>
+            )}
+          </div>
 
-          {/* Ganancia Térmica */}
-          {efficiencyData.thermalGain && (
-            <div className="metric-card">
-              <h3>Ganancia Térmica</h3>
-              <div className="metric-comparison">
+          {/* ✅ ANÁLISIS TÉRMICO - ACTUALIZADO */}
+          <div className="metric-card">
+            <h3>Análisis Térmico</h3>
+            <div className="metric-comparison">
+              {efficiencyData.thermal_analysis.refrigerada && (
                 <div className="metric-item">
-                  <span className="metric-label">Con Refrigeración:</span>
-                  <span className="metric-value">
-                    {formatTemperature(efficiencyData.thermalGain.refrigerated)}
-                  </span>
+                  <span className="metric-label">Fachada Refrigerada:</span>
+                  <div className="metric-details">
+                    <div>Temp. Panel: {formatTemperature(efficiencyData.thermal_analysis.refrigerada.avg_panel_temperature)}</div>
+                    <div>Temp. Ambiente: {formatTemperature(efficiencyData.thermal_analysis.refrigerada.avg_ambient_temperature)}</div>
+                    <div>Diferencia: {formatTemperature(efficiencyData.thermal_analysis.refrigerada.temperature_difference)}</div>
+                    <div>Ganancia Térmica: {formatPower(efficiencyData.thermal_analysis.refrigerada.estimated_thermal_gain_w)}</div>
+                    <div className="interpretation">
+                      {efficiencyData.thermal_analysis.refrigerada.interpretation}
+                    </div>
+                  </div>
                 </div>
+              )}
+              {efficiencyData.thermal_analysis.no_refrigerada && (
                 <div className="metric-item">
-                  <span className="metric-label">Sin Refrigeración:</span>
-                  <span className="metric-value">
-                    {formatTemperature(efficiencyData.thermalGain.nonRefrigerated)}
-                  </span>
+                  <span className="metric-label">Fachada No Refrigerada:</span>
+                  <div className="metric-details">
+                    <div>Temp. Panel: {formatTemperature(efficiencyData.thermal_analysis.no_refrigerada.avg_panel_temperature)}</div>
+                    <div>Temp. Ambiente: {formatTemperature(efficiencyData.thermal_analysis.no_refrigerada.avg_ambient_temperature)}</div>
+                    <div>Diferencia: {formatTemperature(efficiencyData.thermal_analysis.no_refrigerada.temperature_difference)}</div>
+                    <div>Ganancia Térmica: {formatPower(efficiencyData.thermal_analysis.no_refrigerada.estimated_thermal_gain_w)}</div>
+                    <div className="interpretation">
+                      {efficiencyData.thermal_analysis.no_refrigerada.interpretation}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
 
-          {/* COP (Coefficient of Performance) */}
-          {efficiencyData.cop && (
-            <div className="metric-card">
-              <h3>Coeficiente de Rendimiento (COP)</h3>
-              <div className="metric-single">
-                <div className="metric-item">
-                  <span className="metric-label">Valor COP:</span>
-                  <span className="metric-value cop-value">
-                    {efficiencyData.cop.value?.toFixed(2) || '0.00'}
-                  </span>
+          {/* ✅ COP METRICS - ACTUALIZADO */}
+          <div className="metric-card">
+            <h3>Coeficiente de Rendimiento (COP)</h3>
+            <div className="metric-single">
+              {efficiencyData.cop_metrics.cop_available ? (
+                <>
+                  <div className="metric-item">
+                    <span className="metric-label">Valor COP:</span>
+                    <span className="metric-value cop-value">
+                      {efficiencyData.cop_metrics.cop_average?.toFixed(2) || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="metric-details">
+                    <div>Capacidad de Enfriamiento: {formatPower(efficiencyData.cop_metrics.cooling_capacity_avg_w || 0)}</div>
+                    <div>Consumo Eléctrico: {formatPower(efficiencyData.cop_metrics.estimated_power_input_w || 0)}</div>
+                    <div>Delta Temp. Agua: {formatTemperature(efficiencyData.cop_metrics.water_temp_delta_avg_celsius || 0)}</div>
+                    <div>Flujo Agua: {efficiencyData.cop_metrics.water_flow_avg_lpm?.toFixed(1) || '0.0'} LPM</div>
+                    <div className="efficiency-rating">
+                      Eficiencia: {efficiencyData.cop_metrics.efficiency_rating}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="metric-unavailable">
+                  <span className="metric-label">Sistema no disponible:</span>
+                  <span className="metric-value">{efficiencyData.cop_metrics.note || 'Datos de COP no disponibles'}</span>
                 </div>
-                <div className="metric-details">
-                  <div>Capacidad de Enfriamiento: {efficiencyData.cop.coolingCapacity?.toFixed(1) || '0.0'} kW</div>
-                  <div>Consumo Eléctrico: {efficiencyData.cop.powerInput?.toFixed(1) || '0.0'} kW</div>
+              )}
+              {efficiencyData.cop_metrics.note && (
+                <div className="metric-note">
+                  {efficiencyData.cop_metrics.note}
                 </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
 
-          {/* Reducción de Temperatura */}
-          {efficiencyData.temperatureReduction && (
-            <div className="metric-card">
-              <h3>Reducción de Temperatura</h3>
-              <div className="metric-single">
-                <div className="metric-item">
-                  <span className="metric-label">Reducción Absoluta:</span>
-                  <span className="metric-value reduction">
-                    {formatTemperature(efficiencyData.temperatureReduction.reduction)}
-                  </span>
-                </div>
-                <div className="metric-item">
-                  <span className="metric-label">Mejora en Eficiencia PV:</span>
-                  <span className="metric-value improvement">
-                    {formatPercentage(efficiencyData.temperatureReduction.efficiencyImprovement)}
-                  </span>
-                </div>
+          {/* ✅ INFORMACIÓN GENERAL */}
+          <div className="metric-card highlight">
+            <h3>Información General</h3>
+            <div className="metric-single">
+              <div className="metric-item">
+                <span className="metric-label">ID Fachada:</span>
+                <span className="metric-value">{efficiencyData.facade_id}</span>
+              </div>
+              <div className="metric-item">
+                <span className="metric-label">Período de Análisis:</span>
+                <span className="metric-value">
+                  {efficiencyData.analysis_period.start === "Not specified" ? 
+                    "No especificado" : efficiencyData.analysis_period.start} - 
+                  {efficiencyData.analysis_period.end === "Not specified" ? 
+                    "No especificado" : efficiencyData.analysis_period.end}
+                </span>
+              </div>
+              <div className="metric-item">
+                <span className="metric-label">Total Mediciones:</span>
+                <span className="metric-value">
+                  {(
+                    (efficiencyData.thermal_analysis.refrigerada?.measurements_count || 0) +
+                    (efficiencyData.thermal_analysis.no_refrigerada?.measurements_count || 0)
+                  ).toLocaleString()}
+                </span>
               </div>
             </div>
-          )}
-
-          {/* Mejora General de Eficiencia */}
-          {efficiencyData.efficiencyImprovement && (
-            <div className="metric-card highlight">
-              <h3>Mejora General de Eficiencia</h3>
-              <div className="metric-single">
-                <div className="metric-item">
-                  <span className="metric-label">Incremento en Eficiencia:</span>
-                  <span className="metric-value highlight-value">
-                    {formatPercentage(efficiencyData.efficiencyImprovement)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Impacto en Rendimiento PV */}
-          {efficiencyData.pvPerformanceImpact && (
-            <div className="metric-card">
-              <h3>Impacto en Rendimiento Fotovoltaico</h3>
-              <div className="metric-single">
-                <div className="metric-item">
-                  <span className="metric-label">Impacto Estimado:</span>
-                  <span className="metric-value pv-impact">
-                    {formatPercentage(efficiencyData.pvPerformanceImpact)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
       {!efficiencyData && !loading && !error && (
         <div className="no-data">
           <p>Ingrese un ID de fachada para ver las métricas de eficiencia</p>
-          <p><strong>Sugerencia:</strong> Prueba con el ID "2" para fachada refrigerada</p>
+          <p><strong>Sugerencia:</strong> Prueba con el ID "1" (no refrigerada) o "2" (refrigerada)</p>
         </div>
       )}
 

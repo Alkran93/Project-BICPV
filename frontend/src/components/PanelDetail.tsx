@@ -48,7 +48,7 @@ export default function PanelDetail({
   // Función para obtener datos de overview (condiciones ambientales)
   const fetchOverviewData = async () => {
     try {
-      const url = `http://localhost:8000/facades/${id}`;
+      const url = `http://34.135.241.88:8000/facades/${id}`;
       console.log(`🌍 [PanelDetail] Fetching overview data for facade ID: ${id} from: ${url}`);
 
       const response = await fetch(url);
@@ -83,7 +83,7 @@ export default function PanelDetail({
   // Función para obtener la lista de sensores
   const fetchSensorsList = async () => {
     try {
-      const url = `http://localhost:8000/facades/${id}/sensors`;
+      const url = `http://34.135.241.88:8000/facades/${id}/sensors`;
       console.log(`📋 [PanelDetail] Fetching sensors list for facade ID: ${id} from: ${url}`);
       const response = await fetch(url);
 
@@ -103,7 +103,7 @@ export default function PanelDetail({
   const fetchTemperatureSensors = async () => {
     setLoading(true);
     try {
-      const url = `http://localhost:8000/realtime/facades/${id}`;
+      const url = `http://34.135.241.88:8000/realtime/facades/${id}`;
       console.log(`🔍 [PanelDetail] Fetching temperature sensors for facade ID: ${id} from: ${url}`);
       const response = await fetch(url);
 

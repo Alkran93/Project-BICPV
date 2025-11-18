@@ -41,7 +41,7 @@ export default function TemperatureComparison() {
     setError(null);
 
     try {
-      const facadesUrl = `http://localhost:8000/facades`;
+      const facadesUrl = `http://34.135.241.88:8000/facades`;
       console.log(`🔍 Fetching facades list from: ${facadesUrl}`);
 
       const facadesResponse = await fetch(facadesUrl);
@@ -64,8 +64,8 @@ export default function TemperatureComparison() {
       console.log(`🔎 Fachada refrigerada: ${refrigerated.facade_id}, No refrigerada: ${nonRefrigerated.facade_id}`);
 
       const [refResponse, nonRefResponse] = await Promise.all([
-        fetch(`http://localhost:8000/realtime/facades/${refrigerated.facade_id}`),
-        fetch(`http://localhost:8000/realtime/facades/${nonRefrigerated.facade_id}`)
+        fetch(`http://34.135.241.88:8000/realtime/facades/${refrigerated.facade_id}`),
+        fetch(`http://34.135.241.88:8000/realtime/facades/${nonRefrigerated.facade_id}`)
       ]);
 
       if (!refResponse.ok || !nonRefResponse.ok) {

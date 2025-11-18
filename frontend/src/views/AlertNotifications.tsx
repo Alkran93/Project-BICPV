@@ -61,7 +61,7 @@ export default function AlertNotifications() {
       if (facadeTypeFilter) params.append("facade_type", facadeTypeFilter);
       params.append("hours", hoursFilter.toString());
       
-      const url = `http://localhost:8000/alerts/anomalies?${params.toString()}`;
+      const url = `http://34.135.241.88:8000/alerts/anomalies?${params.toString()}`;
       console.log(`🚨 [${new Date().toLocaleTimeString()}] Fetching alerts from: ${url}`);
 
       const response = await fetch(url);
@@ -352,7 +352,7 @@ export default function AlertNotifications() {
         >
           <strong>Error:</strong> {error}
           <p style={{ margin: "0.5rem 0 0 0", fontSize: "12px" }}>
-            Verifica que la API esté ejecutándose en http://localhost:8000
+            Verifica que la API esté ejecutándose en http://34.135.241.88:8000
           </p>
         </div>
       )}

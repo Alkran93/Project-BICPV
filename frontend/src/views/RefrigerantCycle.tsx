@@ -113,7 +113,7 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
       if (endDate) params.append("end", endDate);
 
       const queryString = params.toString();
-      const url = `http://localhost:8000/control/pressure/${facadeId}${queryString ? `?${queryString}` : ''}`;
+      const url = `http://34.135.241.88:8000/control/pressure/${facadeId}${queryString ? `?${queryString}` : ''}`;
       console.log(`📊 [${new Date().toLocaleTimeString()}] Fetching pressure data from: ${url}`);
 
       const response = await fetch(url);
@@ -158,7 +158,7 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
       if (endDate) params.append("end", endDate);
 
       const queryString = params.toString();
-      const url = `http://localhost:8000/temperatures/refrigerant-cycle/${facadeId}${queryString ? `?${queryString}` : ''}`;
+      const url = `http://34.135.241.88:8000/temperatures/refrigerant-cycle/${facadeId}${queryString ? `?${queryString}` : ''}`;
       console.log(`❄️ [${new Date().toLocaleTimeString()}] Fetching refrigerant cycle from: ${url}`);
 
       const response = await fetch(url);

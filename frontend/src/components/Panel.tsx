@@ -37,7 +37,7 @@ export default function Panel({
 
     setLoading(true);
     try {
-      const url = `http://localhost:8000/realtime/facades/${id}`;
+      const url = `http://34.135.241.88:8000/realtime/facades/${id}`;
       console.log(`🔍 Panel (${title}) - Fetching from: ${url}`);
       
       const response = await fetch(url);

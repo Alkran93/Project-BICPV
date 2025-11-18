@@ -66,8 +66,8 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
         `📊 [${new Date().toLocaleTimeString()}] Fetching comparison data from both facades...`
       );
 
-      const url1 = `http://localhost:8000/analytics/compare/1`;
-      const url2 = `http://localhost:8000/analytics/compare/2`;
+      const url1 = `http://34.135.241.88:8000/analytics/compare/1`;
+      const url2 = `http://34.135.241.88:8000/analytics/compare/2`;
       console.log(`🔍 Fetching from: ${url1} and ${url2}`);
 
       const [response1, response2] = await Promise.all([

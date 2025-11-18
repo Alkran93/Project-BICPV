@@ -193,4 +193,45 @@
     align-items: flex-start;
     gap: 5px;
   }
+  .metric-subtext {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+  }
+
+  .metric-note {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background-color: #e7f3ff;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #0066cc;
+    border-left: 4px solid #007bff;
+  }
+
+  .interpretation {
+    font-style: italic;
+    color: #28a745;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .efficiency-rating {
+    font-weight: 600;
+    color: #17a2b8;
+    margin-top: 0.5rem;
+  }
+
+  .metric-unavailable {
+    text-align: center;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    color: #6c757d;
+  }
+
+  .metric-details div {
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+  }
 }

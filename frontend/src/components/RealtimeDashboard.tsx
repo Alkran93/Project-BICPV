@@ -31,7 +31,7 @@ export default function RealtimeDashboard({
     setError(null);
 
     try {
-      const url = `http://localhost:8000/realtime/facades/${facadeId}`;
+      const url = `http://34.135.241.88:8000/realtime/facades/${facadeId}`;
       console.log(`🚀 Fetching realtime data from: ${url}`);
 
       const response = await fetch(url);
@@ -239,7 +239,7 @@ export default function RealtimeDashboard({
       >
         <strong>Debug Info:</strong>
         <br />
-        URL: http://localhost:8000/realtime/facades/{facadeId}
+        URL: http://34.135.241.88:8000/realtime/facades/{facadeId}
         <br />
         Estado:{" "}
         {loading ? "Cargando" : error ? `Error: ${error}` : `OK (${data.length} items)`}
@@ -281,7 +281,7 @@ export default function RealtimeDashboard({
           <p style={{ fontSize: "12px", color: "#888" }}>
             Verifica que:
             <br />
-            • La API esté ejecutándose en http://localhost:8000
+            • La API esté ejecutándose en http://34.135.241.88:8000
             <br />
             • Existan datos en la base de datos para esta fachada
             <br />• La fachada ID sea correcta
