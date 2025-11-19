@@ -51,7 +51,6 @@ This system monitors and analyzes temperature, environmental conditions, and per
 ---
 
 ## Table of Contents
-
 ### 📖 Documentation
 
 ### What's Included in GKE Deployment
@@ -62,6 +61,15 @@ This system monitors and analyzes temperature, environmental conditions, and per
 - ✅ **Monitoring**: Cloud Monitoring & Logging
 - ✅ **CI/CD**: Automated deployments
 - ✅ **Cost Optimized**: ~$520-900/month with scaling
+
+###  URLs de Acceso Público
+
+| Servicio | URL | Descripción |
+|----------|-----|-------------|
+| **Frontend** | http://136.116.162.219 | Interfaz web React |
+| **Backend API** | http://136.115.180.156:8000 | API REST FastAPI |
+| **API Docs** | http://136.115.180.156:8000/docs | Documentación Swagger |
+| **MQTT Broker** | 136.119.67.41:1883 | Broker Mosquitto para IoT |
 
 ---
 
