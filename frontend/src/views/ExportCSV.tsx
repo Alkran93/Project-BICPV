@@ -18,10 +18,10 @@ export default function ExportCSV({ facadeId = 1 }: { facadeId?: number }) {
 
       if (type === "facade") {
         // Export normal
-        url = `http://34.135.241.88:8000/exports/csv/facade/${facadeId}`;
+        url = `http://136.115.180.156:8000/exports/csv/facade/${facadeId}`;
       } else {
         // Export comparativo: requiere facade_id + sensor
-        fetch (`http://34.135.241.88:8000/exports/csv/compare?facade_id=${facadeId}&sensor=${sensor}`);
+        fetch (`http://136.115.180.156:8000/exports/csv/compare?facade_id=${facadeId}&sensor=${sensor}`);
       }
 
       console.log(`⬇️ Exporting CSV from: ${url}`);

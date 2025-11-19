@@ -66,8 +66,8 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
         `📊 [${new Date().toLocaleTimeString()}] Fetching comparison data from both facades...`
       );
 
-      const url1 = `http://34.135.241.88:8000/analytics/compare/1`;
-      const url2 = `http://34.135.241.88:8000/analytics/compare/2`;
+      const url1 = `http://136.115.180.156:8000/analytics/compare/1`;
+      const url2 = `http://136.115.180.156:8000/analytics/compare/2`;
       console.log(`🔍 Fetching from: ${url1} and ${url2}`);
 
       const [response1, response2] = await Promise.all([
@@ -89,14 +89,26 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
       console.log(`Facade 1 API response:`, data1);
       console.log(`Facade 2 API response:`, data2);
 
-      const noRefrigeradaData = data1.comparison?.no_refrigerada || [];
-      const refrigeradaData = data2.comparison?.refrigerada || [];
+      // CORRECCIÓN: Extraer datos de la estructura correcta
+      // Combinar datos de ambas llamadas
+      const noRefrigeradaData = [
+        ...(data1.comparison?.no_refrigerada || []),
+        ...(data2.comparison?.no_refrigerada || [])
+      ];
+      const refrigeradaData = [
+        ...(data1.comparison?.refrigerada || []),
+        ...(data2.comparison?.refrigerada || [])
+      ];
+
+      // También podrías combinar datos de ambas respuestas si es necesario:
+      // const noRefrigeradaData = [...(data1.comparison?.no_refrigerada || []), ...(data2.comparison?.no_refrigerada || [])];
+      // const refrigeradaData = [...(data1.comparison?.refrigerada || []), ...(data2.comparison?.refrigerada || [])];
 
       const tempRefrigerada = refrigeradaData.filter((s: SensorStats) => 
-        s.sensor_name.startsWith('Temperature_M')
+        s.sensor_name.startsWith('Temperature_M') || s.sensor_name.startsWith('T_')
       );
       const tempNoRefrigerada = noRefrigeradaData.filter((s: SensorStats) => 
-        s.sensor_name.startsWith('Temperature_M')
+        s.sensor_name.startsWith('Temperature_M') || s.sensor_name.startsWith('T_')
       );
 
       console.log(

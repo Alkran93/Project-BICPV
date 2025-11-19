@@ -45,7 +45,7 @@ export default function AlertsHistory() {
       if (facadeTypeFilter) params.append("facade_type", facadeTypeFilter);
       params.append("hours", hoursFilter.toString());
 
-      const url = `http://34.135.241.88:8000/alerts/anomalies?${params.toString()}`;
+      const url = `http://136.115.180.156:8000/alerts/anomalies?${params.toString()}`;
       console.log(`📜 [${new Date().toLocaleTimeString()}] Fetching alerts history from: ${url}`);
 
       const response = await fetch(url);
@@ -353,7 +353,7 @@ export default function AlertsHistory() {
         >
           <strong>Error:</strong> {error}
           <p style={{ margin: "0.5rem 0 0 0", fontSize: "14px" }}>
-            Verifica que la API esté ejecutándose en http://localhost:8000
+            Verifica que la API esté ejecutándose en http://136.115.180.156:8000
           </p>
           <p style={{ margin: "0.5rem 0 0 0", fontSize: "12px", color: "#856404" }}>
             💡 Nota: Este historial muestra anomalías detectadas en tiempo real. Si no hay registros, significa que el sistema está funcionando correctamente.

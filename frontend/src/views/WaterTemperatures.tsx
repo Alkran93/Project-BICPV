@@ -44,7 +44,7 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
     setError(null);
 
     try {
-      const facadesUrl = `http://34.135.241.88:8000/facades`;
+      const facadesUrl = `http://136.115.180.156:8000/facades`;
       console.log(`🔍 Fetching facades list from: ${facadesUrl}`);
 
       const facadesResponse = await fetch(facadesUrl);
@@ -60,7 +60,7 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
         throw new Error("No se encontró ninguna fachada refrigerada");
       }
 
-      const url = `http://34.135.241.88:8000/temperatures/exchanger/${refrigerated.facade_id}?limit=100`;
+      const url = `http://136.115.180.156:8000/temperatures/exchanger/${refrigerated.facade_id}?limit=100`;
       console.log(`💧 Fetching exchanger temperatures from: ${url}`);
 
       const response = await fetch(url);

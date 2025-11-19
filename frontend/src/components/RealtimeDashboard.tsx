@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useRealtimeData } from "../../contexts/RealtimeDataContext";
 
 // Tipos basados en lo que debería devolver el endpoint realtime
 interface RealtimeSensor {
@@ -21,91 +21,61 @@ export default function RealtimeDashboard({
   autoRefresh = true,
   refreshInterval = 5000,
 }: RealtimeDashboardProps) {
-  const [data, setData] = useState<RealtimeSensor[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<string>("");
+  const { data, loading, error, lastUpdate, refreshData } = useRealtimeData();
 
-  const fetchRealtimeData = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const url = `http://34.135.241.88:8000/realtime/facades/${facadeId}`;
-      console.log(`🚀 Fetching realtime data from: ${url}`);
-
-      const response = await fetch(url);
-
-      console.log(`📡 Response status: ${response.status} ${response.statusText}`);
-      console.log(
-        `📡 Response headers:`,
-        Object.fromEntries(response.headers.entries())
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ Error response:`, errorText);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const responseData = await response.json();
-      console.log(`✅ Raw response data:`, responseData);
-      console.log(`📊 Data type:`, typeof responseData);
-
-      // La respuesta tiene estructura: { facade_id, facade_type, data: {...} }
-      const sensorData = responseData.data || {};
-      
-      // Convertir el objeto de sensores a array
-      const sensorsArray = Object.entries(sensorData).map(([sensorName, sensorInfo]: [string, any]) => ({
-        sensor_id: sensorName,
-        sensor_name: sensorName,
-        value: sensorInfo.value,
-        ts: sensorInfo.ts,
-        device_id: sensorInfo.device_id,
-        facade_type: sensorInfo.facade_type,
-        sensor_type: sensorName.startsWith('Temperature_') ? 'temperature' : 'other',
-        unit: sensorName.startsWith('Temperature_') ? '°C' : 
-              sensorName === 'Humedad' ? '%' :
-              sensorName === 'Irradiancia' ? 'W/m²' :
-              sensorName === 'Velocidad_Viento' ? 'm/s' : '',
-        last_update: sensorInfo.ts
-      }));
-
-      console.log(`✅ Converted to array with ${sensorsArray.length} sensors`);
-      setData(sensorsArray);
-      setLastUpdate(new Date().toLocaleString());
-
-      if (sensorsArray.length === 0) {
-        console.warn("⚠️ No sensor data available");
-      } else {
-        console.log(`✅ Successfully loaded ${sensorsArray.length} sensors`);
-        console.log(`📋 Sample sensor:`, sensorsArray[0]);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      console.error(`💥 Error fetching realtime data:`, err);
-      setError(errorMessage);
-      setData([]);
-    } finally {
-      setLoading(false);
+  // Obtener datos específicos de esta fachada
+  const facadeData = data[facadeId] || {};
+  
+  // Convertir el objeto de sensores a array
+  const sensorsArray = Object.entries(facadeData).map(([sensorName, sensorInfo]: [string, any]) => {
+    
+    let sensorType = "other";
+    let unit = "";
+    
+    if (sensorName.startsWith('T_M') && sensorName.includes('_')) {
+      sensorType = 'temperature';
+      unit = '°C';
+    } else if (sensorName === 'Irradiancia') {
+      sensorType = 'irradiance';
+      unit = 'W/m²';
+    } else if (sensorName === 'Velocidad_Viento') {
+      sensorType = 'wind_speed';
+      unit = 'm/s';
+    } else if (sensorName === "Humedad") {
+      sensorType = "humidity";
+      unit = "%";
+    } else if (sensorName === "Temperatura_Ambiente") {
+      sensorType = "ambient_temperature";
+      unit = "°C";
+    } else if (sensorName.includes("Presion")) {
+      sensorType = "pressure";
+      unit = "bar";
+    } else if (sensorName.includes("Flujo")) {
+      sensorType = "flow";
+      unit = "LPM";
+    } else if (sensorName.includes("T_Salida") || sensorName.includes("T_Entrada")) {
+      sensorType = "refrigerant_temperature";
+      unit = "°C";
+    } else if (sensorName.includes("T_Valvula") || sensorName.includes("T_EntCompresor") || sensorName.includes("T_SalCompresor")) {
+      sensorType = "refrigeration_system";
+      unit = "°C";
+    } else if (sensorName.includes("Estado")) {
+      sensorType = "system_status";
+      unit = sensorInfo.value === 1 ? "ON" : "OFF";
     }
-  };
 
-  // Efecto para carga inicial
-  useEffect(() => {
-    fetchRealtimeData();
-  }, [facadeId]);
-
-  // Efecto para auto-refresh
-  useEffect(() => {
-    if (!autoRefresh) return;
-
-    const interval = setInterval(() => {
-      fetchRealtimeData();
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, facadeId]);
+    return {
+      sensor_id: sensorName,
+      sensor_name: sensorName,
+      value: sensorInfo.value,
+      ts: sensorInfo.ts,
+      device_id: sensorInfo.device_id,
+      facade_type: sensorInfo.facade_type,
+      sensor_type: sensorType,
+      unit: unit,
+      last_update: sensorInfo.ts,
+    };
+  });
 
   const groupSensorsByType = (sensors: RealtimeSensor[]) => {
     return sensors.reduce(
@@ -123,15 +93,17 @@ export default function RealtimeDashboard({
 
   const getSensorTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      temperature: "Temperatura",
+      temperature: "Temperatura del Panel",
       irradiance: "Irradiancia",
       wind_speed: "Velocidad del Viento",
+      humidity: "Humedad",
+      ambient_temperature: "Temperatura Ambiente",
       pressure: "Presión",
-      voltage: "Voltaje",
-      current: "Corriente",
-      power: "Potencia",
       flow: "Flujo",
-      other: "Otros",
+      refrigerant_temperature: "Temperatura del Refrigerante",
+      refrigeration_system: "Sistema de Refrigeración",
+      system_status: "Estado del Sistema",
+      other: "Otros Sensores",
       unknown: "Desconocido",
     };
     return labels[type] || type;
@@ -140,11 +112,17 @@ export default function RealtimeDashboard({
   const getStatusColor = () => {
     if (loading) return "#ffa500"; // orange
     if (error) return "#dc3545"; // red
-    if (data.length === 0) return "#6c757d"; // gray
+    if (sensorsArray.length === 0) return "#6c757d"; // gray
     return "#28a745"; // green
   };
 
-  const groupedSensors = groupSensorsByType(data);
+  const getValueColor = (sensorType: string, value: number) => {
+    if (sensorType === 'temperature' && value > 40) return "#dc3545"; // red for high temp
+    if (sensorType === 'temperature' && value < 20) return "#007bff"; // blue for low temp
+    return "#28a745"; // green for normal
+  };
+
+  const groupedSensors = groupSensorsByType(sensorsArray);
 
   return (
     <div
@@ -196,9 +174,9 @@ export default function RealtimeDashboard({
                 ? "Cargando..."
                 : error
                   ? "Error"
-                  : data.length === 0
+                  : sensorsArray.length === 0
                     ? "Sin datos"
-                    : `${data.length} sensores activos`}
+                    : `${sensorsArray.length} sensores activos`}
             </span>
           </div>
 
@@ -209,7 +187,7 @@ export default function RealtimeDashboard({
           )}
 
           <button
-            onClick={fetchRealtimeData}
+            onClick={refreshData}
             disabled={loading}
             style={{
               padding: "8px 16px",
@@ -239,12 +217,14 @@ export default function RealtimeDashboard({
       >
         <strong>Debug Info:</strong>
         <br />
-        URL: http://34.135.241.88:8000/realtime/facades/{facadeId}
+        Fachada ID: {facadeId}
         <br />
         Estado:{" "}
-        {loading ? "Cargando" : error ? `Error: ${error}` : `OK (${data.length} items)`}
+        {loading ? "Cargando" : error ? `Error: ${error}` : `OK (${sensorsArray.length} sensores)`}
         <br />
         Auto-refresh: {autoRefresh ? `Sí (cada ${refreshInterval}ms)` : "No"}
+        <br />
+        Tipos de sensores: {Object.keys(groupedSensors).join(", ")}
       </div>
 
       {/* Error display */}
@@ -264,7 +244,7 @@ export default function RealtimeDashboard({
       )}
 
       {/* Empty state */}
-      {!loading && !error && data.length === 0 && (
+      {!loading && !error && sensorsArray.length === 0 && (
         <div
           style={{
             padding: "40px",
@@ -276,21 +256,22 @@ export default function RealtimeDashboard({
         >
           <h3 style={{ color: "#6c757d" }}>No hay datos disponibles</h3>
           <p style={{ color: "#6c757d" }}>
-            El endpoint no devolvió datos para la fachada {facadeId}
+            No se encontraron datos para la fachada {facadeId}
           </p>
           <p style={{ fontSize: "12px", color: "#888" }}>
             Verifica que:
             <br />
-            • La API esté ejecutándose en http://34.135.241.88:8000
+            • La fachada ID sea correcta (1 o 2)
             <br />
-            • Existan datos en la base de datos para esta fachada
-            <br />• La fachada ID sea correcta
+            • Existan datos en tiempo real para esta fachada
+            <br />
+            • El contexto esté cargando datos correctamente
           </p>
         </div>
       )}
 
       {/* Data display */}
-      {!loading && !error && data.length > 0 && (
+      {!loading && !error && sensorsArray.length > 0 && (
         <div>
           {Object.entries(groupedSensors).map(([type, sensors]) => (
             <div
@@ -359,7 +340,7 @@ export default function RealtimeDashboard({
                       style={{
                         fontSize: "24px",
                         fontWeight: "bold",
-                        color: "#28a745",
+                        color: getValueColor(sensor.sensor_type, sensor.value),
                         marginBottom: "5px",
                       }}
                     >
@@ -383,7 +364,7 @@ export default function RealtimeDashboard({
       )}
 
       {/* Raw data display for debugging */}
-      {data.length > 0 && (
+      {sensorsArray.length > 0 && (
         <details style={{ marginTop: "30px" }}>
           <summary
             style={{
@@ -405,7 +386,7 @@ export default function RealtimeDashboard({
               marginTop: "10px",
             }}
           >
-            {JSON.stringify(data, null, 2)}
+            {JSON.stringify(sensorsArray, null, 2)}
           </pre>
         </details>
       )}

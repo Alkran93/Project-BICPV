@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useRealtimeData } from "../../contexts/RealtimeDataContext";
 
 type PanelProps = {
   title: string;
@@ -8,7 +8,7 @@ type PanelProps = {
   viewMode?: "Fachada" | "Temperatura";
   sensors?: number[];
   onClick?: () => void;
-  id?: string; // Añadir ID para hacer la consulta API
+  id?: string;
 };
 
 interface TemperatureSensor {
@@ -26,111 +26,53 @@ export default function Panel({
   viewMode = "Fachada",
   sensors = [],
   onClick,
-  id = "1", // ID por defecto
+  id = "1",
 }: PanelProps) {
-  const [temperatureSensors, setTemperatureSensors] = useState<TemperatureSensor[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data, loading } = useRealtimeData();
 
-  // Función para obtener datos de temperatura desde la API
-  const fetchTemperatureSensors = async () => {
-    if (viewMode !== "Temperatura" || !id) return;
+  // Obtener datos específicos de esta fachada
+  const facadeData = data[id] || {};
+  
+  // Extraer y ordenar sensores de temperatura
+  const temperatureSensors = Object.entries(facadeData)
+    .filter(([sensorName]) => sensorName.startsWith("T_M") && sensorName.includes("_"))
+    .map(([sensorName, sensorInfo]: [string, any]) => ({
+      sensor_id: sensorName,
+      value: sensorInfo.value,
+      unit: "°C",
+      last_update: sensorInfo.ts
+    }))
+    .sort((a, b) => {
+      const getPosition = (sensorId: string) => {
+        const match = sensorId.match(/T_M(\d+)_(\d+)/);
+        return match ? parseInt(match[1]) * 10 + parseInt(match[2]) : 0;
+      };
+      return getPosition(a.sensor_id) - getPosition(b.sensor_id);
+    });
 
-    setLoading(true);
-    try {
-      const url = `http://34.135.241.88:8000/realtime/facades/${id}`;
-      console.log(`🔍 Panel (${title}) - Fetching from: ${url}`);
-      
-      const response = await fetch(url);
+  // Calcular temperatura promedio
+  const averageTemperature = temperatureSensors.length > 0
+    ? temperatureSensors.reduce((sum, sensor) => sum + sensor.value, 0) / temperatureSensors.length
+    : temperature;
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log(`🔍 Panel (${title}) - Realtime API response:`, data);
-
-      // La respuesta tiene estructura: { facade_id, facade_type, data: {...} }
-      const sensorData = data.data || {};
-      
-      // Filtrar solo sensores de temperatura y convertir a formato esperado
-      const tempSensors: TemperatureSensor[] = [];
-      
-      Object.entries(sensorData).forEach(([sensorName, sensorInfo]: [string, any]) => {
-        if (sensorName.startsWith("Temperature_M")) {
-          tempSensors.push({
-            sensor_id: sensorName,
-            value: sensorInfo.value,
-            unit: "°C",
-            last_update: sensorInfo.ts
-          });
-        }
-      });
-
-      console.log(`🌡️ Panel (${title}) - Processed temperature sensors:`, tempSensors);
-      setTemperatureSensors(tempSensors);
-    } catch (error) {
-      console.error(`Error fetching temperature sensors for ${title}:`, error);
-      setTemperatureSensors([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Efecto para cargar datos cuando cambia el modo de vista o el ID
-  useEffect(() => {
-    fetchTemperatureSensors();
-  }, [viewMode, id]);
-
-  // Efecto para auto-refresh cuando está en modo Temperatura
-  useEffect(() => {
-    if (viewMode !== "Temperatura") return;
-
-    // Intervalo de actualización cada 5 segundos
-    const interval = setInterval(() => {
-      fetchTemperatureSensors();
-    }, 5000);
-
-    // Limpiar intervalo cuando el componente se desmonta o cambia el modo
-    return () => clearInterval(interval);
-  }, [viewMode, id]);
-
-  // Función para obtener el valor de temperatura para una posición específica
+  // Función para obtener temperatura por posición
   const getTemperatureForPosition = (index: number) => {
     if (temperatureSensors.length === 0) return undefined;
-
-    // Mapear posición del grid (0-14) a sensor reverso
-    // Empezar desde L5_3 y ir hacia atrás
-    const totalSensors = 15; // 5 filas x 3 columnas
-    const reverseIndex = totalSensors - 1 - index;
-
-    // Si hay sensores de la API, usar esos datos
-    if (temperatureSensors[reverseIndex]) {
-      return temperatureSensors[reverseIndex].value;
-    }
-
-    // Fallback a datos dummy si no hay suficientes sensores
-    return sensors[index];
+    return temperatureSensors[index]?.value || sensors[index];
   };
 
-  // Función para obtener el ID del sensor para una posición específica
+  // Función para obtener ID del sensor por posición
   const getSensorIdForPosition = (index: number) => {
     if (temperatureSensors.length === 0) return `Sensor ${index + 1}`;
-
-    // Mapear posición del grid a sensor reverso
-    const totalSensors = 15;
-    const reverseIndex = totalSensors - 1 - index;
-
-    if (temperatureSensors[reverseIndex]) {
-      // Extraer solo la parte LX_X del sensor_id
-      const sensorId = temperatureSensors[reverseIndex].sensor_id;
-      const match = sensorId.match(/L\d+_\d+/);
-      return match ? match[0] : sensorId;
+    
+    const sensor = temperatureSensors[index];
+    if (sensor) {
+      return sensor.sensor_id.replace("T_M", "L");
     }
-
-    // Calcular el nombre del sensor basado en la posición reversa
-    // Posición 0 del grid = L5_3, posición 1 = L5_2, etc.
-    const row = Math.floor((totalSensors - 1 - index) / 3) + 1; // L1 a L5
-    const col = ((totalSensors - 1 - index) % 3) + 1; // 1 a 3
+    
+    // Fallback: calcular basado en posición
+    const row = Math.floor(index / 3) + 1;
+    const col = (index % 3) + 1;
     return `L${row}_${col}`;
   };
 
@@ -232,7 +174,7 @@ export default function Panel({
                       )}
 
                       {/* Indicador de carga */}
-                      {loading && viewMode === "Temperatura" && (
+                      {loading && (
                         <text
                           x={35 + col * 50}
                           y={54 + row * 55}
@@ -261,7 +203,7 @@ export default function Panel({
           </div>
           <div className="info-card">
             <div className="info-value">
-              {temperature !== undefined ? temperature.toFixed(1) : "--"}°C
+              {averageTemperature.toFixed(1)}°C
             </div>
             <div className="info-label">Temperatura General</div>
           </div>

@@ -71,7 +71,7 @@ const EfficiencyMetricsView: React.FC = () => {
   const [error, setError] = useState<string>('');
 
   // ✅ Cambiar a localhost si es necesario
-  const API_BASE_URL = "http://34.135.241.88:8000";
+  const API_BASE_URL = "http://136.115.180.156:8000";
 
   // Función para obtener el análisis completo de eficiencia
   const fetchEfficiencyAnalysis = async () => {

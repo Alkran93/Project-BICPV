@@ -77,7 +77,7 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
       }
 
       const queryString = params.toString();
-      const url = `http://34.135.241.88:8000/chart-data/power-irradiance/${facadeId}${queryString ? `?${queryString}` : ''}`;
+      const url = `http://136.115.180.156:8000/chart-data/power-irradiance/${facadeId}${queryString ? `?${queryString}` : ''}`;
       
       console.log(`⚡ [${new Date().toLocaleTimeString()}] Fetching power/radiance data from: ${url}`);
 

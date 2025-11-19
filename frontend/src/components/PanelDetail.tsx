@@ -1,6 +1,7 @@
 import { ArrowLeft, Thermometer, Sun, Wind, Droplets } from "lucide-react";
 import { useState, useEffect } from "react";
 import "../styles/PanelDetail.css";
+import { useRealtimeData } from "../../contexts/RealtimeDataContext";
 
 type PanelDetailProps = {
   title: string;
@@ -10,7 +11,7 @@ type PanelDetailProps = {
   sensors: number[];  
   onBack: () => void;
   onSystemTempClick: () => void;
-  id?: string; // Añadir ID para hacer las consultas API
+  id?: string;
 };
 
 interface TemperatureSensor {
@@ -21,8 +22,6 @@ interface TemperatureSensor {
   sensor_type: string;
 }
 
-
-
 export default function PanelDetail({
   title,
   refrigerated = false,
@@ -31,24 +30,57 @@ export default function PanelDetail({
   sensors = [],
   onBack,
   onSystemTempClick,
-  id = "1", // ID por defecto
+  id = "1",
 }: PanelDetailProps) {
-  const [selectedSensor, setSelectedSensor] = useState<number | null>(null);
-  const [temperatureSensors, setTemperatureSensors] = useState<TemperatureSensor[]>([]);
-  const [sensorsList, setSensorsList] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [averageTemperature, setAverageTemperature] = useState<number>(temperature);
   const [environmentalData, setEnvironmentalData] = useState({
     irradiance: 0,
     windSpeed: 0,
     ambientTemp: 0,
-    humidity: 65, // Este valor no viene del overview, se mantiene fijo
+    humidity: 65,
   });
+  const [selectedSensor, setSelectedSensor] = useState<number | null>(null);
+  const [sensorsList, setSensorsList] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { data, loading: contextLoading } = useRealtimeData();
+
+  // Obtener datos específicos de esta fachada
+  const facadeData = data[id] || {};
+
+  // Extraer y ordenar sensores de temperatura
+  const temperatureSensors = Object.entries(facadeData)
+    .filter(([sensorName]) => sensorName.startsWith("T_M") && sensorName.includes("_"))
+    .map(([sensorName, sensorInfo]: [string, any]) => ({
+      sensor_id: sensorName,
+      value: sensorInfo.value,
+      unit: "°C",
+      last_update: sensorInfo.ts,
+      sensor_type: "temperature"
+    }))
+    .sort((a, b) => {
+      const getPosition = (sensorId: string) => {
+        const match = sensorId.match(/T_M(\d+)_(\d+)/);
+        return match ? parseInt(match[1]) * 10 + parseInt(match[2]) : 0;
+      };
+      return getPosition(a.sensor_id) - getPosition(b.sensor_id);
+    });
+
+  // Extraer datos ambientales (valores iniciales extraídos desde facadeData para uso local)
+    const facadeEnvironmentalData = {
+      irradiance: facadeData.Irradiancia?.value || 0,
+      windSpeed: facadeData.Velocidad_Viento?.value || 0,
+      ambientTemp: facadeData.Temperatura_Ambiente?.value || 0,
+      humidity: facadeData.Humedad?.value || 65,
+    };
+
+  // Calcular temperatura promedio
+  const averageTemperature = temperatureSensors.length > 0 
+    ? temperatureSensors.reduce((sum, sensor) => sum + sensor.value, 0) / temperatureSensors.length
+    : temperature;
 
   // Función para obtener datos de overview (condiciones ambientales)
   const fetchOverviewData = async () => {
     try {
-      const url = `http://34.135.241.88:8000/facades/${id}`;
+      const url = `http://136.115.180.156:8000/facades/${id}`;
       console.log(`🌍 [PanelDetail] Fetching overview data for facade ID: ${id} from: ${url}`);
 
       const response = await fetch(url);
@@ -62,19 +94,24 @@ export default function PanelDetail({
 
       // Buscar datos ambientales en current_readings
       const readings = facadeData.current_readings || [];
-      const irradiance = readings.find((r: any) => r.sensor_name === 'Irradiancia')?.value || 0;
-      const windSpeed = readings.find((r: any) => r.sensor_name === 'Velocidad_Viento')?.value || 0;
-      const ambientTemp = readings.find((r: any) => r.sensor_name === 'Temperatura_Ambiente')?.value || 0;
-      const humidity = readings.find((r: any) => r.sensor_name === 'Humedad')?.value || 65;
+      const irradiance = readings.find((r: any) => r.sensor_name === 'Irradiancia')?.value || facadeEnvironmentalData.irradiance;
+      const windSpeed = readings.find((r: any) => r.sensor_name === 'Velocidad_Viento')?.value || facadeEnvironmentalData.windSpeed;
+      const ambientTemp = readings.find((r: any) => r.sensor_name === 'Temperatura_Ambiente')?.value || facadeEnvironmentalData.ambientTemp;
+      const humidity = readings.find((r: any) => r.sensor_name === 'Humedad')?.value || facadeEnvironmentalData.humidity;
 
       console.log(`🌡️ Extracted environmental data - Irradiance: ${irradiance}, Wind: ${windSpeed}, Temp: ${ambientTemp}, Humidity: ${humidity}`);
 
-      setEnvironmentalData({
-        irradiance,
-        windSpeed,
-        ambientTemp,
-        humidity,
-      });
+      // Actualizar solo si hay datos nuevos
+      if (irradiance !== environmentalData.irradiance || 
+          windSpeed !== environmentalData.windSpeed || 
+          ambientTemp !== environmentalData.ambientTemp) {
+        setEnvironmentalData({
+          irradiance,
+          windSpeed,
+          ambientTemp,
+          humidity,
+        });
+      }
     } catch (error) {
       console.error("💥 Error fetching overview data:", error);
     }
@@ -83,7 +120,7 @@ export default function PanelDetail({
   // Función para obtener la lista de sensores
   const fetchSensorsList = async () => {
     try {
-      const url = `http://34.135.241.88:8000/facades/${id}/sensors`;
+      const url = `http://136.115.180.156:8000/facades/${id}/sensors`;
       console.log(`📋 [PanelDetail] Fetching sensors list for facade ID: ${id} from: ${url}`);
       const response = await fetch(url);
 
@@ -99,131 +136,44 @@ export default function PanelDetail({
     }
   };
 
-  // Función para obtener datos de temperatura desde la API
-  const fetchTemperatureSensors = async () => {
-    setLoading(true);
-    try {
-      const url = `http://34.135.241.88:8000/realtime/facades/${id}`;
-      console.log(`🔍 [PanelDetail] Fetching temperature sensors for facade ID: ${id} from: ${url}`);
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("🔍 Realtime API response:", data);
-
-      // La respuesta tiene estructura: { facade_id, facade_type, data: {...} }
-      const sensorData = data.data || {};
-      
-      // Filtrar solo sensores de temperatura y convertir a formato esperado
-      const tempSensors: TemperatureSensor[] = [];
-      
-      Object.entries(sensorData).forEach(([sensorName, sensorInfo]: [string, any]) => {
-        if (sensorName.startsWith("Temperature_M")) {
-          tempSensors.push({
-            sensor_id: sensorName,
-            value: sensorInfo.value,
-            unit: "°C",
-            last_update: sensorInfo.ts,
-            sensor_type: "temperature"
-          });
-        }
-      });
-
-      console.log("🌡️ Processed temperature sensors:", tempSensors);
-      setTemperatureSensors(tempSensors);
-
-      // Calcular y actualizar la temperatura promedio con los datos filtrados
-      if (tempSensors.length > 0) {
-        const values = tempSensors.map(sensor => sensor.value);
-        const sum = tempSensors.reduce((acc, sensor) => acc + sensor.value, 0);
-        const avgTemp = sum / tempSensors.length;
-
-        console.log(`🌡️ Temperature sensors values:`, values);
-        console.log(
-          `🧮 Sum: ${sum}, Count: ${tempSensors.length}, Average: ${avgTemp.toFixed(2)}°C`
-        );
-        console.log(
-          `📊 Previous average: ${averageTemperature.toFixed(2)}°C, New average: ${avgTemp.toFixed(2)}°C`
-        );
-
-        setAverageTemperature(avgTemp);
-      } else {
-        console.warn("⚠️ No temperature sensors found for average calculation");
-        setAverageTemperature(temperature); // Fallback al valor original
-      }
-    } catch (error) {
-      console.error("Error fetching temperature sensors:", error);
-      setTemperatureSensors([]);
-      setAverageTemperature(temperature); // Fallback en caso de error
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Efecto para cargar datos al montar el componente
   useEffect(() => {
     fetchSensorsList();
-    fetchTemperatureSensors();
     fetchOverviewData();
   }, [id]);
 
-  // Efecto para auto-refresh de temperaturas cada 5 segundos
+  // Efecto para auto-refresh de datos ambientales cada 10 segundos
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchTemperatureSensors();
-      fetchOverviewData(); // También actualizar datos ambientales
-    }, 5000);
+      fetchOverviewData();
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [id]);
 
-  // Efecto para debug - observar cambios en averageTemperature
-  useEffect(() => {
-    console.log(
-      `🔄 Average temperature state updated to: ${averageTemperature.toFixed(2)}°C`
-    );
-  }, [averageTemperature]);
-
-  // Efecto para debug - observar cambios en environmentalData
-  useEffect(() => {
-    console.log(`🌍 Environmental data state updated:`, environmentalData);
-  }, [environmentalData]);
-
   // Función para obtener el valor de temperatura para una posición específica
   const getTemperatureForPosition = (index: number) => {
     if (temperatureSensors.length === 0) return undefined;
-
-    // Mapear posición del grid (0-14) a sensor reverso
-    const totalSensors = 15;
-    const reverseIndex = totalSensors - 1 - index;
-
-    if (temperatureSensors[reverseIndex]) {
-      return temperatureSensors[reverseIndex].value;
-    }
-
-    return sensors[index]; // Fallback
+    return temperatureSensors[index]?.value || sensors[index];
   };
 
   // Función para obtener el ID del sensor para una posición específica
   const getSensorIdForPosition = (index: number) => {
     if (temperatureSensors.length === 0) return `Sensor ${index + 1}`;
-
-    const totalSensors = 15;
-    const reverseIndex = totalSensors - 1 - index;
-
-    if (temperatureSensors[reverseIndex]) {
-      const sensorId = temperatureSensors[reverseIndex].sensor_id;
-      const match = sensorId.match(/L\d+_\d+/);
-      return match ? match[0] : sensorId;
+    
+    const sensor = temperatureSensors[index];
+    if (sensor) {
+      return sensor.sensor_id.replace('T_M', 'L');
     }
 
-    const row = Math.floor((totalSensors - 1 - index) / 3) + 1;
-    const col = ((totalSensors - 1 - index) % 3) + 1;
+    // Fallback: calcular basado en posición
+    const row = Math.floor(index / 3) + 1;
+    const col = (index % 3) + 1;
     return `L${row}_${col}`;
   };
+
+  // Loading combinado del contexto y fetch local
+  const isLoading = contextLoading || loading;
 
   return (
     <div className="panel-detail-container">
@@ -271,7 +221,7 @@ export default function PanelDetail({
           tabIndex={0}
         >
           <div className="metric-value">
-            {averageTemperature.toFixed(1)}°C {loading && "🔄"}
+            {averageTemperature.toFixed(1)}°C {isLoading && "🔄"}
           </div>
           <div className="metric-label">Temperatura Promedio (Real)</div>
         </div>
@@ -369,7 +319,7 @@ export default function PanelDetail({
                       )}
 
                       {/* Indicador de carga */}
-                      {loading && !value && (
+                      {isLoading && !value && (
                         <text
                           x={70 + col * 100}
                           y={95 + row * 110}
@@ -430,7 +380,7 @@ export default function PanelDetail({
                     ? "⚠️ En alerta (baja temperatura)"
                     : "✅ Normal"}
                 </p>
-                {loading && <p className="loading-text">🔄 Actualizando datos...</p>}
+                {isLoading && <p className="loading-text">🔄 Actualizando datos...</p>}
               </div>
             )}
           </div>
@@ -441,7 +391,7 @@ export default function PanelDetail({
           {/* Variables ambientales */}
           <div className="environmental-section">
             <h3 className="info-section-title">
-              Condiciones Ambientales {loading && "🔄"}
+              Condiciones Ambientales {isLoading && "🔄"}
             </h3>
             <div className="environmental-grid">
               <div className="env-card">
@@ -495,37 +445,6 @@ export default function PanelDetail({
               </div>
             </div>
           </div>
-
-          {/* Análisis de rendimiento compacto 
-          <div className="performance-section">
-            <h3 className="info-section-title">Análisis de Rendimiento</h3>
-            <div className="performance-grid">
-              <div className="performance-item">
-                <span className="performance-label">Eficiencia del Sistema:</span>
-                <span className="performance-value">
-                  {refrigerated ? "95%" : "78%"}
-                </span>
-              </div>
-              <div className="performance-item">
-                <span className="performance-label">Estado Operativo:</span>
-                <span
-                  className={`performance-value ${
-                    faults === 0 ? "status-ok-text" : "status-alert-text"
-                  }`}
-                >
-                  {faults === 0 ? "Óptimo" : "Requiere Atención"}
-                </span>
-              </div>
-              <div className="performance-item">
-                <span className="performance-label">Tiempo de Operación:</span>
-                <span className="performance-value">8h 24min</span>
-              </div>
-              <div className="performance-item">
-                <span className="performance-label">Última Actualización:</span>
-                <span className="performance-value">Hace 2 minutos</span>
-              </div>
-            </div>
-          </div> */}
         </div>
       </div>
     </div>
