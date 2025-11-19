@@ -11,13 +11,6 @@ type PanelProps = {
   id?: string;
 };
 
-interface TemperatureSensor {
-  sensor_id: string;
-  value: number;
-  unit: string;
-  last_update: string;
-}
-
 export default function Panel({
   title,
   refrigerated = false,

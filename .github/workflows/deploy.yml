@@ -1,0 +1,201 @@
+# ============================================================================
+# GitHub Actions CI/CD Pipeline
+# Construye todas las imágenes Docker, las sube a Artifact Registry
+# y despliega automáticamente en GKE
+# ============================================================================
+
+name: CI/CD - Build and Deploy to GKE
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: bicpv-478621
+  GKE_CLUSTER: solar-facades-cluster
+  GKE_REGION: us-central1
+  ARTIFACT_REGISTRY: us-central1-docker.pkg.dev
+  NAMESPACE: solar-facades-prod
+
+jobs:
+  # ============================================================================
+  # Job 1: Build and Deploy
+  # ============================================================================
+  build-and-deploy:
+    name: Build, Push, and Deploy All Services
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      # ============================================================================
+      # STEP 1: Checkout code
+      # ============================================================================
+      - name: 📦 Checkout Repository
+        uses: actions/checkout@v4
+
+      # ============================================================================
+      # STEP 2: Authenticate to Google Cloud
+      # ============================================================================
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # ============================================================================
+      # STEP 3: Setup Cloud SDK
+      # ============================================================================
+      - name: ☁️ Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      # ============================================================================
+      # STEP 4: Configure Docker
+      # ============================================================================
+      - name: 🐳 Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+      # ============================================================================
+      # STEP 5: Build Docker Images
+      # ============================================================================
+      - name: 🔨 Build Backend Image
+        run: |
+          echo "Building Backend..."
+          docker build \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/backend:${{ github.sha }} \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/backend:latest \
+            -f backend/Dockerfile.prod \
+            ./backend
+
+      - name: 🔨 Build Frontend Image
+        run: |
+          echo "Building Frontend..."
+          docker build \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/frontend:${{ github.sha }} \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/frontend:latest \
+            -f frontend/Dockerfile.prod \
+            ./frontend
+
+      - name: 🔨 Build Ingestor Image
+        run: |
+          echo "Building Ingestor..."
+          docker build \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/ingestor:${{ github.sha }} \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/ingestor:latest \
+            -f ingestor/Dockerfile.prod \
+            ./ingestor
+
+      - name: 🔨 Build Alert Monitor Image
+        run: |
+          echo "Building Alert Monitor..."
+          docker build \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/alert-monitor:${{ github.sha }} \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/alert-monitor:latest \
+            -f Dockerfile.alert-monitor \
+            .
+
+      # ============================================================================
+      # STEP 6: Push Images to Artifact Registry
+      # ============================================================================
+      - name: 📤 Push Backend Image
+        run: |
+          echo "Pushing Backend to Artifact Registry..."
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/backend:${{ github.sha }}
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/backend:latest
+
+      - name: 📤 Push Frontend Image
+        run: |
+          echo "Pushing Frontend to Artifact Registry..."
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/frontend:${{ github.sha }}
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/frontend:latest
+
+      - name: 📤 Push Ingestor Image
+        run: |
+          echo "Pushing Ingestor to Artifact Registry..."
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/ingestor:${{ github.sha }}
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/ingestor:latest
+
+      - name: 📤 Push Alert Monitor Image
+        run: |
+          echo "Pushing Alert Monitor to Artifact Registry..."
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/alert-monitor:${{ github.sha }}
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/alert-monitor:latest
+
+      # ============================================================================
+      # STEP 7: Get GKE Credentials
+      # ============================================================================
+      - name: 🔑 Get GKE Credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_REGION }}
+
+      # ============================================================================
+      # STEP 8: Deploy to GKE
+      # ============================================================================
+      - name: 🚀 Deploy Backend
+        run: |
+          echo "Deploying Backend to GKE..."
+          kubectl set image deployment/backend \
+            backend=${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/backend:${{ github.sha }} \
+            -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/backend \
+            -n ${{ env.NAMESPACE }} \
+            --timeout=5m
+
+      - name: 🚀 Deploy Frontend
+        run: |
+          echo "Deploying Frontend to GKE..."
+          kubectl set image deployment/frontend \
+            frontend=${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/frontend:${{ github.sha }} \
+            -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/frontend \
+            -n ${{ env.NAMESPACE }} \
+            --timeout=5m
+
+      - name: 🚀 Deploy Ingestor
+        run: |
+          echo "Deploying Ingestor to GKE..."
+          kubectl set image deployment/ingestor \
+            ingestor=${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/ingestor:${{ github.sha }} \
+            -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/ingestor \
+            -n ${{ env.NAMESPACE }} \
+            --timeout=5m
+
+      - name: 🚀 Deploy Alert Monitor
+        run: |
+          echo "Deploying Alert Monitor to GKE..."
+          kubectl set image deployment/alert-monitor \
+            alert-monitor=${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/solar-facades/alert-monitor:${{ github.sha }} \
+            -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/alert-monitor \
+            -n ${{ env.NAMESPACE }} \
+            --timeout=5m
+
+      # ============================================================================
+      # STEP 9: Verify Deployment
+      # ============================================================================
+      - name: ✅ Verify Deployment
+        run: |
+          echo "======================================"
+          echo "Deployment Status"
+          echo "======================================"
+          kubectl get pods -n ${{ env.NAMESPACE }} -o wide
+          echo ""
+          echo "======================================"
+          echo "Services Status"
+          echo "======================================"
+          kubectl get services -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "======================================"
+          echo "Deployment Complete!"
+          echo "======================================"

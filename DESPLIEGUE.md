@@ -22,21 +22,21 @@
 
 | Parámetro | Valor |
 |-----------|-------|
-| **Proyecto GCP** | bicpv-477720 |
+| **Proyecto GCP** | bicpv-478621 |
 | **Región** | us-central1 |
 | **Cluster GKE** | solar-facades-cluster |
 | **Namespace** | solar-facades-prod |
 | **Repositorio** | Alkran93/Project-BICPV |
-| **Registry** | us-central1-docker.pkg.dev/bicpv-477720/solar-facades |
+| **Registry** | us-central1-docker.pkg.dev/bicpv-478621/solar-facades |
 
 ### 🌐 URLs de Acceso Público
 
 | Servicio | URL | Descripción |
 |----------|-----|-------------|
-| **Frontend** | http://136.113.179.202 | Interfaz web React |
-| **Backend API** | http://34.135.241.88:8000 | API REST FastAPI |
-| **API Docs** | http://34.135.241.88:8000/docs | Documentación Swagger |
-| **MQTT Broker** | 34.71.114.102:32015 | Broker Mosquitto para IoT |
+| **Frontend** | http://136.116.162.219 | Interfaz web React |
+| **Backend API** | http://136.115.180.156:8000 | API REST FastAPI |
+| **API Docs** | http://136.115.180.156:8000/docs | Documentación Swagger |
+| **MQTT Broker** | 136.119.67.41:1883 | Broker Mosquitto para IoT |
 
 ### 🎯 Objetivos del Despliegue
 
@@ -128,12 +128,12 @@ Region: us-central1
 ```
 
 **Reglas de Firewall**
-- `allow-mqtt-nodeport`: Permite tráfico TCP en puerto 32015 desde Internet
+- `allow-mqtt-nodeport`: Permite tráfico TCP en puerto 1883 desde Internet
 - Reglas automáticas de GKE para comunicación interna
 
 **IPs Externas Reservadas**
 ```bash
-gcloud compute addresses list --project=bicpv-477720
+gcloud compute addresses list --project=bicpv-478621
 ```
 
 #### 3.2 GKE Cluster
@@ -186,16 +186,16 @@ Format: Docker
 **Acceso mediante Workload Identity:**
 ```bash
 # Service Accounts con permisos de lectura
-- backend-sa@bicpv-477720.iam.gserviceaccount.com
-- ingestor-sa@bicpv-477720.iam.gserviceaccount.com
-- alert-monitor-sa@bicpv-477720.iam.gserviceaccount.com
+- backend-sa@bicpv-478621.iam.gserviceaccount.com
+- ingestor-sa@bicpv-478621.iam.gserviceaccount.com
+- alert-monitor-sa@bicpv-478621.iam.gserviceaccount.com
 ```
 
 #### 3.5 Cloud Storage
 
 ```bash
 # Bucket para exports y reportes
-Bucket: gs://bicpv-477720-solar-facades-exports
+Bucket: gs://bicpv-478621-solar-facades-exports
 Region: us-central1
 Storage Class: Standard
 ```
@@ -246,7 +246,7 @@ CMD ["uvicorn","app.main:app","--host","0.0.0.0","--port","8000"]
 ```yaml
 # k8s/base/backend-deployment.yaml
 replicas: 2
-image: us-central1-docker.pkg.dev/bicpv-477720/solar-facades/backend:latest
+image: us-central1-docker.pkg.dev/bicpv-478621/solar-facades/backend:latest
 resources:
   requests:
     cpu: 200m
@@ -272,7 +272,7 @@ resources:
 
 **Build Args:**
 ```bash
-VITE_API_URL=http://34.135.241.88:8000
+VITE_API_URL=http://136.115.180.156:8000
 ```
 
 **Dockerfile:** `frontend/Dockerfile.prod`
@@ -315,7 +315,7 @@ server {
 ```yaml
 # k8s/base/frontend-deployment.yaml
 replicas: 2
-image: us-central1-docker.pkg.dev/bicpv-477720/solar-facades/frontend:latest
+image: us-central1-docker.pkg.dev/bicpv-478621/solar-facades/frontend:latest
 resources:
   requests:
     cpu: 100m
@@ -367,7 +367,7 @@ CMD ["python", "main.py"]
 ```yaml
 # k8s/base/ingestor-deployment.yaml
 replicas: 2
-image: us-central1-docker.pkg.dev/bicpv-477720/solar-facades/ingestor:latest
+image: us-central1-docker.pkg.dev/bicpv-478621/solar-facades/ingestor:latest
 ```
 
 ---
@@ -418,7 +418,7 @@ CMD ["python", "alert_monitor.py"]
 ```yaml
 # k8s/base/alert-monitor-deployment.yaml
 replicas: 1  # Singleton
-image: us-central1-docker.pkg.dev/bicpv-477720/solar-facades/alert-monitor:latest
+image: us-central1-docker.pkg.dev/bicpv-478621/solar-facades/alert-monitor:latest
 ```
 
 ---
@@ -553,7 +553,7 @@ mosquitto-external: 32015 -> 1883
 ```bash
 # Autenticar con GCP
 gcloud auth login
-gcloud config set project bicpv-477720
+gcloud config set project bicpv-478621
 
 # Configurar credenciales para Terraform
 gcloud auth application-default login
@@ -569,7 +569,7 @@ gcloud services enable \
   cloudbuild.googleapis.com \
   secretmanager.googleapis.com \
   storage-api.googleapis.com \
-  --project=bicpv-477720
+  --project=bicpv-478621
 ```
 
 #### Paso 3: Desplegar Infraestructura con Terraform
@@ -602,7 +602,7 @@ terraform apply tfplan
 # Obtener credenciales del cluster
 gcloud container clusters get-credentials solar-facades-cluster \
   --region=us-central1 \
-  --project=bicpv-477720
+  --project=bicpv-478621
 
 # Verificar conexión
 kubectl cluster-info
@@ -613,7 +613,7 @@ kubectl get nodes
 
 ```bash
 # La contraseña está en Secret Manager
-DB_PASSWORD=$(gcloud secrets versions access latest --secret=db-password --project=bicpv-477720)
+DB_PASSWORD=$(gcloud secrets versions access latest --secret=db-password --project=bicpv-478621)
 
 # URL-encode la contraseña (importante para caracteres especiales)
 DB_PASSWORD_ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote_plus('$DB_PASSWORD'))")
@@ -653,26 +653,26 @@ kubectl apply -f k8s/base/frontend-service.yaml
 
 ```bash
 # Backend
-docker build --no-cache -t us-central1-docker.pkg.dev/bicpv-477720/solar-facades/backend:latest \
+docker build --no-cache -t us-central1-docker.pkg.dev/bicpv-478621/solar-facades/backend:latest \
   -f backend/Dockerfile ./backend
-docker push us-central1-docker.pkg.dev/bicpv-477720/solar-facades/backend:latest
+docker push us-central1-docker.pkg.dev/bicpv-478621/solar-facades/backend:latest
 
 # Ingestor
-docker build --no-cache -t us-central1-docker.pkg.dev/bicpv-477720/solar-facades/ingestor:latest \
+docker build --no-cache -t us-central1-docker.pkg.dev/bicpv-478621/solar-facades/ingestor:latest \
   -f ingestor/Dockerfile ./ingestor
-docker push us-central1-docker.pkg.dev/bicpv-477720/solar-facades/ingestor:latest
+docker push us-central1-docker.pkg.dev/bicpv-478621/solar-facades/ingestor:latest
 
 # Alert Monitor
-docker build --no-cache -t us-central1-docker.pkg.dev/bicpv-477720/solar-facades/alert-monitor:latest \
+docker build --no-cache -t us-central1-docker.pkg.dev/bicpv-478621/solar-facades/alert-monitor:latest \
   -f Dockerfile.alert-monitor .
-docker push us-central1-docker.pkg.dev/bicpv-477720/solar-facades/alert-monitor:latest
+docker push us-central1-docker.pkg.dev/bicpv-478621/solar-facades/alert-monitor:latest
 
 # Frontend (con IP del backend)
 BACKEND_IP=$(kubectl get service backend-service -n solar-facades-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 docker build --no-cache --build-arg VITE_API_URL=http://${BACKEND_IP}:8000 \
-  -t us-central1-docker.pkg.dev/bicpv-477720/solar-facades/frontend:latest \
+  -t us-central1-docker.pkg.dev/bicpv-478621/solar-facades/frontend:latest \
   -f frontend/Dockerfile.prod ./frontend
-docker push us-central1-docker.pkg.dev/bicpv-477720/solar-facades/frontend:latest
+docker push us-central1-docker.pkg.dev/bicpv-478621/solar-facades/frontend:latest
 ```
 
 #### Paso 8: Desplegar Aplicaciones
@@ -713,7 +713,7 @@ MQTT_PORT=$(kubectl get service mosquitto-external -n solar-facades-prod -o json
 
 # Crear regla de firewall
 gcloud compute firewall-rules create allow-mqtt-nodeport \
-  --project=bicpv-477720 \
+  --project=bicpv-478621 \
   --direction=INGRESS \
   --network=solar-facades-cluster-vpc \
   --action=ALLOW \
@@ -746,15 +746,15 @@ El archivo `cloudbuild.yaml` define el pipeline completo de CI/CD.
 
 ```bash
 # Habilitar Cloud Build API
-gcloud services enable cloudbuild.googleapis.com --project=bicpv-477720
+gcloud services enable cloudbuild.googleapis.com --project=bicpv-478621
 
 # Dar permisos a Cloud Build
-PROJECT_NUMBER=$(gcloud projects describe bicpv-477720 --format='value(projectNumber)')
-gcloud projects add-iam-policy-binding bicpv-477720 \
+PROJECT_NUMBER=$(gcloud projects describe bicpv-478621 --format='value(projectNumber)')
+gcloud projects add-iam-policy-binding bicpv-478621 \
   --member=serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com \
   --role=roles/container.developer
 
-gcloud projects add-iam-policy-binding bicpv-477720 \
+gcloud projects add-iam-policy-binding bicpv-478621 \
   --member=serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com \
   --role=roles/artifactregistry.writer
 ```
@@ -763,7 +763,7 @@ gcloud projects add-iam-policy-binding bicpv-477720 \
 
 **Opción A: Desde la consola web (Recomendado)**
 
-1. Ve a: https://console.cloud.google.com/cloud-build/triggers?project=bicpv-477720
+1. Ve a: https://console.cloud.google.com/cloud-build/triggers?project=bicpv-478621
 2. Click en **"CREATE TRIGGER"**
 3. Conecta tu repositorio GitHub (Alkran93/Project-BICPV)
 4. Configurar trigger:
@@ -788,7 +788,7 @@ gcloud builds triggers create github \
   --repo-owner="Alkran93" \
   --branch-pattern="^main$" \
   --build-config="cloudbuild.yaml" \
-  --project=bicpv-477720 \
+  --project=bicpv-478621 \
   --region=us-central1
 ```
 
@@ -861,23 +861,23 @@ Verify Pods Running
 
 ```bash
 # Ver últimos builds
-gcloud builds list --limit=10 --project=bicpv-477720
+gcloud builds list --limit=10 --project=bicpv-478621
 
 # Ver logs de un build específico
-gcloud builds log <BUILD_ID> --project=bicpv-477720
+gcloud builds log <BUILD_ID> --project=bicpv-478621
 
 # Ver builds en curso
-gcloud builds list --ongoing --project=bicpv-477720
+gcloud builds list --ongoing --project=bicpv-478621
 
 # Desde la web
-# https://console.cloud.google.com/cloud-build/builds?project=bicpv-477720
+# https://console.cloud.google.com/cloud-build/builds?project=bicpv-478621
 ```
 
 #### 6.7 Trigger Manual
 
 ```bash
 # Despliegue manual sin push a GitHub
-gcloud builds submit --config=cloudbuild.yaml --project=bicpv-477720
+gcloud builds submit --config=cloudbuild.yaml --project=bicpv-478621
 ```
 
 ---
@@ -1069,10 +1069,10 @@ kubectl cp ./local-file <POD_NAME>:/path/to/file -n solar-facades-prod
 
 ```bash
 # Ver reglas de firewall
-gcloud compute firewall-rules list --project=bicpv-477720
+gcloud compute firewall-rules list --project=bicpv-478621
 
 # Describir regla específica
-gcloud compute firewall-rules describe allow-mqtt-nodeport --project=bicpv-477720
+gcloud compute firewall-rules describe allow-mqtt-nodeport --project=bicpv-478621
 
 # Ver IPs de nodos
 kubectl get nodes -o wide
@@ -1128,25 +1128,25 @@ kubectl get pods -n solar-facades-prod -o jsonpath='{range .items[*]}{.metadata.
 
 ```bash
 # Listar secretos
-gcloud secrets list --project=bicpv-477720
+gcloud secrets list --project=bicpv-478621
 
 # Ver versiones de un secreto
-gcloud secrets versions list db-password --project=bicpv-477720
+gcloud secrets versions list db-password --project=bicpv-478621
 
 # Acceder al valor de un secreto
-gcloud secrets versions access latest --secret=db-password --project=bicpv-477720
+gcloud secrets versions access latest --secret=db-password --project=bicpv-478621
 
 # Crear un nuevo secreto
-echo -n "mi-secreto" | gcloud secrets create nuevo-secreto --data-file=- --project=bicpv-477720
+echo -n "mi-secreto" | gcloud secrets create nuevo-secreto --data-file=- --project=bicpv-478621
 
 # Actualizar un secreto (crea nueva versión)
-echo -n "nuevo-valor" | gcloud secrets versions add db-password --data-file=- --project=bicpv-477720
+echo -n "nuevo-valor" | gcloud secrets versions add db-password --data-file=- --project=bicpv-478621
 
 # Dar permisos de lectura a un Service Account
 gcloud secrets add-iam-policy-binding db-password \
-  --member="serviceAccount:backend-sa@bicpv-477720.iam.gserviceaccount.com" \
+  --member="serviceAccount:backend-sa@bicpv-478621.iam.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor" \
-  --project=bicpv-477720
+  --project=bicpv-478621
 ```
 
 ### 🔑 Kubernetes Secrets
@@ -1210,12 +1210,12 @@ gcloud container clusters describe solar-facades-cluster \
 kubectl create serviceaccount backend-ksa -n solar-facades-prod
 
 gcloud iam service-accounts add-iam-policy-binding \
-  backend-sa@bicpv-477720.iam.gserviceaccount.com \
+  backend-sa@bicpv-478621.iam.gserviceaccount.com \
   --role=roles/iam.workloadIdentityUser \
-  --member="serviceAccount:bicpv-477720.svc.id.goog[solar-facades-prod/backend-ksa]"
+  --member="serviceAccount:bicpv-478621.svc.id.goog[solar-facades-prod/backend-ksa]"
 
 kubectl annotate serviceaccount backend-ksa \
-  iam.gke.io/gcp-service-account=backend-sa@bicpv-477720.iam.gserviceaccount.com \
+  iam.gke.io/gcp-service-account=backend-sa@bicpv-478621.iam.gserviceaccount.com \
   -n solar-facades-prod
 ```
 
@@ -1386,13 +1386,13 @@ kubectl describe pod <POD_NAME> -n solar-facades-prod | grep -A 10 "Events:"
 **Solución:**
 ```bash
 # Verificar que la imagen existe
-gcloud artifacts docker images list us-central1-docker.pkg.dev/bicpv-477720/solar-facades
+gcloud artifacts docker images list us-central1-docker.pkg.dev/bicpv-478621/solar-facades
 
 # Verificar permisos
-gcloud projects get-iam-policy bicpv-477720 | grep artifactregistry
+gcloud projects get-iam-policy bicpv-478621 | grep artifactregistry
 
 # Corregir nombre de imagen en deployment
-kubectl set image deployment/backend backend=us-central1-docker.pkg.dev/bicpv-477720/solar-facades/backend:latest -n solar-facades-prod
+kubectl set image deployment/backend backend=us-central1-docker.pkg.dev/bicpv-478621/solar-facades/backend:latest -n solar-facades-prod
 ```
 
 ---
@@ -1444,7 +1444,7 @@ ValueError: invalid literal for int() with base 10: 'xyz'
 **Solución:**
 ```bash
 # URL-encode la contraseña
-PASSWORD=$(gcloud secrets versions access latest --secret=db-password --project=bicpv-477720)
+PASSWORD=$(gcloud secrets versions access latest --secret=db-password --project=bicpv-478621)
 ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote_plus('$PASSWORD'))")
 
 # Actualizar secret
@@ -1481,10 +1481,10 @@ kubectl describe pod <FRONTEND_POD> -n solar-facades-prod | grep VITE_API_URL
 BACKEND_IP=$(kubectl get service backend-service -n solar-facades-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 docker build --no-cache --build-arg VITE_API_URL=http://${BACKEND_IP}:8000 \
-  -t us-central1-docker.pkg.dev/bicpv-477720/solar-facades/frontend:latest \
+  -t us-central1-docker.pkg.dev/bicpv-478621/solar-facades/frontend:latest \
   -f frontend/Dockerfile.prod ./frontend
 
-docker push us-central1-docker.pkg.dev/bicpv-477720/solar-facades/frontend:latest
+docker push us-central1-docker.pkg.dev/bicpv-478621/solar-facades/frontend:latest
 
 kubectl rollout restart deployment/frontend -n solar-facades-prod
 ```
@@ -1501,7 +1501,7 @@ kubectl rollout restart deployment/frontend -n solar-facades-prod
 **Diagnóstico:**
 ```bash
 # Verificar reglas de firewall
-gcloud compute firewall-rules list --filter="name:mqtt" --project=bicpv-477720
+gcloud compute firewall-rules list --filter="name:mqtt" --project=bicpv-478621
 
 # Test de conectividad
 nc -zv 34.71.114.102 32015
@@ -1517,7 +1517,7 @@ MQTT_PORT=$(kubectl get service mosquitto-external -n solar-facades-prod -o json
 
 # Crear regla de firewall
 gcloud compute firewall-rules create allow-mqtt-nodeport \
-  --project=bicpv-477720 \
+  --project=bicpv-478621 \
   --direction=INGRESS \
   --network=solar-facades-cluster-vpc \
   --action=ALLOW \
@@ -1563,7 +1563,7 @@ gcloud container clusters resize solar-facades-cluster \
   --node-pool=general-pool \
   --num-nodes=3 \
   --region=us-central1 \
-  --project=bicpv-477720
+  --project=bicpv-478621
 ```
 
 ---
@@ -1610,7 +1610,7 @@ kubectl top pods -n solar-facades-prod
 3. **Escaneo de imágenes**
    ```bash
    # Escanear imagen antes de deploy
-   gcloud artifacts docker images scan us-central1-docker.pkg.dev/bicpv-477720/solar-facades/backend:latest
+   gcloud artifacts docker images scan us-central1-docker.pkg.dev/bicpv-478621/solar-facades/backend:latest
    ```
 
 4. **Network Policies**
@@ -1706,7 +1706,7 @@ kubectl top pods -n solar-facades-prod
      pg_dump -U postgres > backup-$(date +%Y%m%d).sql
    
    # Subir a Cloud Storage
-   gsutil cp backup-*.sql gs://bicpv-477720-solar-facades-backups/
+   gsutil cp backup-*.sql gs://bicpv-478621-solar-facades-backups/
    ```
 
 2. **Snapshot de PVs**

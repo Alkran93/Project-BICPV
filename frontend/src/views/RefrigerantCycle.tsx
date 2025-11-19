@@ -309,10 +309,6 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
       tooltip: {
         callbacks: {
           label: function (context: any) {
-            const pressureType = context.label;
-            const highStats = pressureData ? getPressureStats(pressureData.pressures.high_pressure.readings) : null;
-            const lowStats = pressureData ? getPressureStats(pressureData.pressures.low_pressure.readings) : null;
-            
             if (context.dataset.label === "Promedio (PSI)") {
               return `Promedio: ${context.raw.toFixed(2)} PSI`;
             } else {

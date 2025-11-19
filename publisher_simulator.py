@@ -298,6 +298,7 @@ def run_publisher(
                     print(f"[WARN] rc={result.rc} when publishing")
                 
                 print(f"[PUB] type={facade_type} facade={facade_id} device={device_id} topic={topic}")
+                print(payload_json)
             
             time.sleep(frequency)
     

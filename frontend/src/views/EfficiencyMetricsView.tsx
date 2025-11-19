@@ -129,10 +129,6 @@ const EfficiencyMetricsView: React.FC = () => {
     return `${temp?.toFixed(1) || '0.0'}°C`;
   };
 
-  const formatPercentage = (value: number): string => {
-    return `${value?.toFixed(1) || '0.0'}%`;
-  };
-
   const formatPower = (power: number): string => {
     return `${(power / 1000)?.toFixed(1) || '0.0'} kW`;
   };

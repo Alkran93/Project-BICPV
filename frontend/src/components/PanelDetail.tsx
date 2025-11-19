@@ -14,14 +14,6 @@ type PanelDetailProps = {
   id?: string;
 };
 
-interface TemperatureSensor {
-  sensor_id: string;
-  value: number;
-  unit: string;
-  last_update: string;
-  sensor_type: string;
-}
-
 export default function PanelDetail({
   title,
   refrigerated = false,
@@ -40,7 +32,6 @@ export default function PanelDetail({
   });
   const [selectedSensor, setSelectedSensor] = useState<number | null>(null);
   const [sensorsList, setSensorsList] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
   const { data, loading: contextLoading } = useRealtimeData();
 
   // Obtener datos específicos de esta fachada
@@ -173,7 +164,7 @@ export default function PanelDetail({
   };
 
   // Loading combinado del contexto y fetch local
-  const isLoading = contextLoading || loading;
+  const isLoading = contextLoading;
 
   return (
     <div className="panel-detail-container">
