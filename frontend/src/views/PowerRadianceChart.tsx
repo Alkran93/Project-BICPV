@@ -55,6 +55,7 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const isMountedRef = useRef(true);
+  const dataHistoryRef = useRef<PowerRadianceDataPoint[]>([]); // Historial local de puntos
 
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -68,40 +69,32 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
     setError(null);
 
     try {
-      const params = new URLSearchParams();
-      if (startDate) params.append("start", startDate);
-      if (endDate) params.append("end", endDate);
-      if (timeRange && !startDate && !endDate) {
-        // Si no hay fechas específicas, usar el rango de tiempo
-        params.append("range", timeRange);
-      }
-
-      const queryString = params.toString();
-      const url = `http://localhost:8000/chart-data/power-irradiance/${facadeId}${queryString ? `?${queryString}` : ''}`;
+      // Usar endpoint de realtime para obtener irradiancia actual
+      const url = `http://localhost:8000/realtime/facades/${facadeId}`;
       
-      console.log(`⚡ [${new Date().toLocaleTimeString()}] Fetching power/radiance data from: ${url}`);
+      console.log(`⚡ [${new Date().toLocaleTimeString()}] Fetching realtime data from: ${url}`);
 
       const response = await fetch(url);
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error("No hay datos de potencia e irradiancia disponibles.");
+          throw new Error("No hay datos de irradiancia disponibles.");
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const responseData = await response.json();
-      console.log("⚡ Power/Irradiance API response:", responseData);
+      console.log("⚡ Realtime API response:", responseData);
 
       if (isMountedRef.current) {
-        // Transformar los datos del nuevo formato
-        const transformedData = transformPowerIrradianceData(responseData);
+        // Transformar los datos del formato realtime
+        const transformedData = transformRealtimeData(responseData);
         setData(transformedData);
         setLastUpdate(new Date().toLocaleString());
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Error desconocido";
-      console.error("💥 Error fetching power/irradiance data:", err);
+      console.error("💥 Error fetching realtime data:", err);
 
       if (isMountedRef.current) {
         setError(errorMessage);
@@ -114,37 +107,51 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
     }
   };
 
-  const transformPowerIrradianceData = (apiData: any): PowerRadianceResponse => {
-    // Extraer series de datos del response
-    const irradianceSeries = apiData.series.find((s: any) => s.name === "irradiance");
-    const powerSeries = apiData.series.find((s: any) => s.name === "Generated Power");
+  const transformRealtimeData = (apiData: any): PowerRadianceResponse => {
+    // Extraer datos del sensor de irradiancia
+    const sensorData = apiData.data || {};
+    const timestamp = new Date().toISOString();
     
-    const dataPoints: PowerRadianceDataPoint[] = [];
+    // Obtener irradiancia (W/m²)
+    const irradianceValue = sensorData.Irradiancia?.value || 0;
     
-    if (irradianceSeries && powerSeries) {
-      const minLength = Math.min(irradianceSeries.data.length, powerSeries.data.length);
-      
-      for (let i = 0; i < minLength; i++) {
-        dataPoints.push({
-          timestamp: irradianceSeries.data[i].ts || powerSeries.data[i].ts,
-          power_generated: powerSeries.data[i].value,
-          irradiance: irradianceSeries.data[i].value
-        });
-      }
-    }
+    // Estimar potencia generada basada en irradiancia
+    // Fórmula: Potencia (kW) = Irradiancia (W/m²) × Área (m²) × Eficiencia / 1000
+    // Asumiendo: Área del panel = 10 m², Eficiencia = 20%
+    const PANEL_AREA = 10; // m²
+    const EFFICIENCY = 0.20; // 20%
+    const estimatedPowerW = irradianceValue * PANEL_AREA * EFFICIENCY;
+    const estimatedPowerKW = estimatedPowerW / 1000; // Convertir a kW
+    
+    // Mantener historial de los últimos 30 puntos
+    const currentPoint: PowerRadianceDataPoint = {
+      timestamp,
+      power_generated: estimatedPowerKW, // Ahora en kW
+      irradiance: irradianceValue
+    };
+    
+    // Agregar al historial usando el ref para persistencia
+    dataHistoryRef.current = [...dataHistoryRef.current, currentPoint].slice(-30); // Mantener últimos 30 puntos
+    const newData = dataHistoryRef.current;
     
     return {
-      facade_id: apiData.facade_id,
-      facade_type: apiData.facade_type || "no_refrigerada",
-      data: dataPoints,
+      facade_id: apiData.facade_id || facadeId,
+      facade_type: apiData.facade_type || "refrigerada",
+      data: newData,
       summary: {
-        total_power: dataPoints.reduce((sum, point) => sum + point.power_generated, 0),
-        avg_irradiance: dataPoints.reduce((sum, point) => sum + point.irradiance, 0) / dataPoints.length,
-        max_power: Math.max(...dataPoints.map(p => p.power_generated)),
-        max_irradiance: Math.max(...dataPoints.map(p => p.irradiance)),
+        total_power: newData.reduce((sum, point) => sum + point.power_generated, 0),
+        avg_irradiance: newData.length > 0 
+          ? newData.reduce((sum, point) => sum + point.irradiance, 0) / newData.length 
+          : 0,
+        max_power: newData.length > 0 
+          ? Math.max(...newData.map(p => p.power_generated)) 
+          : 0,
+        max_irradiance: newData.length > 0 
+          ? Math.max(...newData.map(p => p.irradiance)) 
+          : 0,
         period: {
-          start: dataPoints[0]?.timestamp || "",
-          end: dataPoints[dataPoints.length - 1]?.timestamp || ""
+          start: newData[0]?.timestamp || "",
+          end: newData[newData.length - 1]?.timestamp || ""
         }
       }
     };
@@ -153,6 +160,7 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
   useEffect(() => {
     console.log("🔄 PowerRadianceChart mounted");
     isMountedRef.current = true;
+    // Solo cargar datos inicialmente, SIN auto-actualización
     fetchPowerRadianceData();
 
     return () => {
@@ -254,7 +262,7 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
         position: 'left' as const,
         title: {
           display: true,
-          text: "Potencia (W)",
+          text: "Potencia (kW)",
           font: { size: 14, weight: "bold" as const },
         },
         grid: {

@@ -146,6 +146,7 @@ export default function App() {
     <div className="app-root">
       {/* Sidebar siempre visible */}
       <Sidebar
+        onHomeClick={handleBackToOverview}
         onComparisonClick={handleComparisonClick}
         onAlertsClick={handleAlertsClick}
         onRealtimeAlertsClick={handleRealtimeAlertsClick}

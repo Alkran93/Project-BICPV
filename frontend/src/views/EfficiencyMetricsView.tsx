@@ -35,7 +35,7 @@ const EfficiencyMetricsView: React.FC = () => {
   // ✅ CONSTANTE CON LA URL CORRECTA
   const API_BASE_URL = "http://localhost:8000";
 
-  // Función para obtener el análisis completo de eficiencia
+  // Función para obtener el análisis completo de eficiencia usando endpoints reales
   const fetchEfficiencyAnalysis = async () => {
     if (!facadeId) {
       setError('Por favor, ingrese un ID de fachada');
@@ -51,23 +51,45 @@ const EfficiencyMetricsView: React.FC = () => {
       if (endDate) params.append('end', endDate);
 
       const queryString = params.toString();
-      // ✅ URL CORREGIDA - sin doble ??
-      const url = `${API_BASE_URL}/efficiency/${facadeId}${queryString ? `?${queryString}` : ''}`;
-      
-      console.log(`📊 Fetching efficiency data from: ${url}`); // Para debugging
 
-      const response = await fetch(url);
+      // Obtener promedios de ambas fachadas para comparación
+      const refUrl = `${API_BASE_URL}/facades/${facadeId}/average?facade_type=refrigerada${queryString ? `&${queryString}` : ''}`;
+      const nonRefUrl = `${API_BASE_URL}/facades/${facadeId}/average?facade_type=no_refrigerada${queryString ? `&${queryString}` : ''}`;
       
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('No hay datos de eficiencia disponibles para esta fachada');
-        }
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      console.log(`📊 Fetching efficiency data from:`, refUrl, nonRefUrl);
+
+      const [refResponse, nonRefResponse] = await Promise.all([
+        fetch(refUrl),
+        fetch(nonRefUrl)
+      ]);
+      
+      if (!refResponse.ok && !nonRefResponse.ok) {
+        throw new Error('No hay datos disponibles para ninguna fachada');
       }
 
-      const data = await response.json();
-      console.log('📊 Efficiency data received:', data); // Para debugging
-      setEfficiencyData(data);
+      const refData = refResponse.ok ? await refResponse.json() : null;
+      const nonRefData = nonRefResponse.ok ? await nonRefResponse.json() : null;
+      
+      console.log('📊 Efficiency data received:', { refData, nonRefData });
+
+      // Calcular métricas basadas en los promedios
+      const refAvg = refData?.averages?.[0] || {};
+      const nonRefAvg = nonRefData?.averages?.[0] || {};
+
+      const refTemp = refAvg.avg_temperature || refAvg.avg_value || 0;
+      const nonRefTemp = nonRefAvg.avg_temperature || nonRefAvg.avg_value || 0;
+
+      setEfficiencyData({
+        temperatureComparison: {
+          refrigerated: refTemp,
+          nonRefrigerated: nonRefTemp
+        },
+        temperatureReduction: {
+          reduction: nonRefTemp - refTemp,
+          efficiencyImprovement: ((nonRefTemp - refTemp) / nonRefTemp) * 100
+        },
+        efficiencyImprovement: ((nonRefTemp - refTemp) / nonRefTemp) * 100
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido al obtener los datos';
       setError(errorMessage);
@@ -77,80 +99,22 @@ const EfficiencyMetricsView: React.FC = () => {
     }
   };
 
-  // ✅ Función para obtener COP específico
-  const fetchCOP = async () => {
-    if (!facadeId) return;
-
-    try {
-      const params = new URLSearchParams();
-      if (startDate) params.append('start', startDate);
-      if (endDate) params.append('end', endDate);
-
-      const response = await fetch(`${API_BASE_URL}/efficiency/${facadeId}/cop?${params}`);
-      if (response.ok) {
-        const copData = await response.json();
-        setEfficiencyData(prev => ({ ...prev, cop: copData }));
-      }
-    } catch (err) {
-      console.error('Error fetching COP:', err);
-    }
-  };
-
-  // ✅ Función para obtener ganancia térmica
-  const fetchThermalGain = async () => {
-    if (!facadeId) return;
-
-    try {
-      const params = new URLSearchParams();
-      if (startDate) params.append('start', startDate);
-      if (endDate) params.append('end', endDate);
-
-      const response = await fetch(`${API_BASE_URL}/efficiency/${facadeId}/thermal-gain?${params}`);
-      if (response.ok) {
-        const thermalData = await response.json();
-        setEfficiencyData(prev => ({ ...prev, thermalGain: thermalData }));
-      }
-    } catch (err) {
-      console.error('Error fetching thermal gain:', err);
-    }
-  };
-
-  // ✅ Función para obtener reducción de temperatura
-  const fetchTemperatureReduction = async () => {
-    if (!facadeId) return;
-
-    try {
-      const params = new URLSearchParams();
-      if (startDate) params.append('start', startDate);
-      if (endDate) params.append('end', endDate);
-
-      const response = await fetch(`${API_BASE_URL}/efficiency/${facadeId}/temperature-reduction?${params}`);
-      if (response.ok) {
-        const tempReductionData = await response.json();
-        setEfficiencyData(prev => ({ ...prev, temperatureReduction: tempReductionData }));
-      }
-    } catch (err) {
-      console.error('Error fetching temperature reduction:', err);
-    }
-  };
-
-  // ✅ Cargar todos los datos cuando cambie facadeId
+  // Cargar datos cuando cambie facadeId y actualizar cada 10 segundos
   useEffect(() => {
     if (facadeId) {
       fetchEfficiencyAnalysis();
-      // También cargar los endpoints específicos si es necesario
-      fetchCOP();
-      fetchThermalGain();
-      fetchTemperatureReduction();
+      
+      // Actualización automática cada 10 segundos
+      const interval = setInterval(() => {
+        fetchEfficiencyAnalysis();
+      }, 10000);
+      
+      return () => clearInterval(interval);
     }
-  }, [facadeId]);
+  }, [facadeId, startDate, endDate]);
 
   const handleSearch = () => {
     fetchEfficiencyAnalysis();
-    // Recargar también los endpoints específicos
-    fetchCOP();
-    fetchThermalGain();
-    fetchTemperatureReduction();
   };
 
   const formatTemperature = (temp: number): string => {

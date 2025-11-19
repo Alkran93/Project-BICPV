@@ -7,7 +7,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { Line, Bar, Scatter } from "react-chartjs-2";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -93,10 +93,10 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
       const refrigeradaData = data2.comparison?.refrigerada || [];
 
       const tempRefrigerada = refrigeradaData.filter((s: SensorStats) => 
-        s.sensor_name.startsWith('Temperature_M')
+        s.sensor_name.startsWith('T_M')
       );
       const tempNoRefrigerada = noRefrigeradaData.filter((s: SensorStats) => 
-        s.sensor_name.startsWith('Temperature_M')
+        s.sensor_name.startsWith('T_M')
       );
 
       console.log(
@@ -122,8 +122,15 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
     isMountedRef.current = true;
     fetchComparisonData();
 
+    // Auto-refresh cada 10 segundos
+    const interval = setInterval(() => {
+      console.log(`⏰ [ComparisonChart] Auto-refresh triggered`);
+      fetchComparisonData();
+    }, 10000);
+
     return () => {
       isMountedRef.current = false;
+      clearInterval(interval);
     };
   }, [fetchComparisonData]);
 
@@ -137,7 +144,7 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
 
   const allSensors = [...refrigeradaStats, ...noRefrigeradaStats];
 
-  const getModuleData = () => {
+  const moduleData = useMemo(() => {
     const modules = ["M1", "M2", "M3", "M4", "M5"];
     
     return modules.map(moduleName => {
@@ -160,27 +167,27 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
         count_noref: noRefSensors.reduce((sum, s) => sum + s.count, 0),
       };
     });
-  };
-
-  const moduleData = getModuleData();
+  }, [refrigeradaStats, noRefrigeradaStats]);
   
-  const overallStats = allSensors.length > 0
-    ? {
-        meanTemp_ref: refrigeradaStats.length > 0
-          ? refrigeradaStats.reduce((sum, s) => sum + s.avg_value, 0) / refrigeradaStats.length
-          : 0,
-        meanTemp_noref: noRefrigeradaStats.length > 0
-          ? noRefrigeradaStats.reduce((sum, s) => sum + s.avg_value, 0) / noRefrigeradaStats.length
-          : 0,
-        maxTemp_ref: refrigeradaStats.length > 0 ? Math.max(...refrigeradaStats.map(s => s.max_value)) : 0,
-        maxTemp_noref: noRefrigeradaStats.length > 0 ? Math.max(...noRefrigeradaStats.map(s => s.max_value)) : 0,
-        minTemp_ref: refrigeradaStats.length > 0 ? Math.min(...refrigeradaStats.map(s => s.min_value)) : 0,
-        minTemp_noref: noRefrigeradaStats.length > 0 ? Math.min(...noRefrigeradaStats.map(s => s.min_value)) : 0,
-        totalReadings_ref: refrigeradaStats.reduce((sum, s) => sum + s.count, 0),
-        totalReadings_noref: noRefrigeradaStats.reduce((sum, s) => sum + s.count, 0),
-        timestamp: lastUpdate,
-      }
-    : null;
+  const overallStats = useMemo(() => {
+    if (allSensors.length === 0) return null;
+    
+    return {
+      meanTemp_ref: refrigeradaStats.length > 0
+        ? refrigeradaStats.reduce((sum, s) => sum + s.avg_value, 0) / refrigeradaStats.length
+        : 0,
+      meanTemp_noref: noRefrigeradaStats.length > 0
+        ? noRefrigeradaStats.reduce((sum, s) => sum + s.avg_value, 0) / noRefrigeradaStats.length
+        : 0,
+      maxTemp_ref: refrigeradaStats.length > 0 ? Math.max(...refrigeradaStats.map(s => s.max_value)) : 0,
+      maxTemp_noref: noRefrigeradaStats.length > 0 ? Math.max(...noRefrigeradaStats.map(s => s.max_value)) : 0,
+      minTemp_ref: refrigeradaStats.length > 0 ? Math.min(...refrigeradaStats.map(s => s.min_value)) : 0,
+      minTemp_noref: noRefrigeradaStats.length > 0 ? Math.min(...noRefrigeradaStats.map(s => s.min_value)) : 0,
+      totalReadings_ref: refrigeradaStats.reduce((sum, s) => sum + s.count, 0),
+      totalReadings_noref: noRefrigeradaStats.reduce((sum, s) => sum + s.count, 0),
+      timestamp: lastUpdate,
+    };
+  }, [refrigeradaStats, noRefrigeradaStats, allSensors.length, lastUpdate]);
 
   const lineChartData = {
     labels: moduleData.map(m => `Módulo ${m.name}`),
@@ -346,6 +353,7 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
           text: "Temperatura Media (°C)",
           font: { size: 14, weight: "bold" as const },
         },
+        beginAtZero: false,
       },
       y: {
         title: {
@@ -353,6 +361,14 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
           text: "Rango Térmico (Max - Min, °C)",
           font: { size: 14, weight: "bold" as const },
         },
+        beginAtZero: true,
+        min: 0,
+        suggestedMax: 0.01,
+        ticks: {
+          stepSize: 0.001,
+        },
+        min: 19.980,
+        max: 20.010,
       },
     },
   };
@@ -735,12 +751,12 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
             boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
             border: "1px solid #e9ecef",
             marginBottom: "2rem",
+            height: "800px",
           }}
         >
           <Scatter
             data={scatterData}
-            options={scatterOptions}
-            height={400}
+            options={{ ...scatterOptions, maintainAspectRatio: false }}
             key={`scatter-${lastUpdate}`}
           />
         </div>

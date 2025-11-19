@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 type SidebarProps = {
+  onHomeClick?: () => void;
   onComparisonClick?: () => void;
   onAlertsClick?: () => void;
   onRealtimeAlertsClick?: () => void;
@@ -23,6 +24,7 @@ type SidebarProps = {
 };
 
 export default function Sidebar({
+  onHomeClick,
   onComparisonClick,
   onAlertsClick,
   onRealtimeAlertsClick,
@@ -48,7 +50,15 @@ export default function Sidebar({
 
         <nav className="nav" aria-label="Main">
           {/* Panel principal */}
-          <a href="#">Inicio</a>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onHomeClick?.();
+            }}
+          >
+            Inicio
+          </a>
 
           {/* === SECCIÓN ALERTAS === */}
           <a

@@ -1,5 +1,5 @@
 import { ArrowLeft, Thermometer, Sun, Wind, Droplets } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import "../styles/PanelDetail.css";
 
 type PanelDetailProps = {
@@ -46,7 +46,7 @@ export default function PanelDetail({
   });
 
   // Función para obtener datos de overview (condiciones ambientales)
-  const fetchOverviewData = async () => {
+  const fetchOverviewData = useCallback(async () => {
     try {
       const url = `http://localhost:8000/facades/${id}`;
       console.log(`🌍 [PanelDetail] Fetching overview data for facade ID: ${id} from: ${url}`);
@@ -78,10 +78,10 @@ export default function PanelDetail({
     } catch (error) {
       console.error("💥 Error fetching overview data:", error);
     }
-  };
+  }, [id]);
 
   // Función para obtener la lista de sensores
-  const fetchSensorsList = async () => {
+  const fetchSensorsList = useCallback(async () => {
     try {
       const url = `http://localhost:8000/facades/${id}/sensors`;
       console.log(`📋 [PanelDetail] Fetching sensors list for facade ID: ${id} from: ${url}`);
@@ -97,10 +97,10 @@ export default function PanelDetail({
       console.error("Error fetching sensors list:", error);
       setSensorsList([]);
     }
-  };
+  }, [id]);
 
   // Función para obtener datos de temperatura desde la API
-  const fetchTemperatureSensors = async () => {
+  const fetchTemperatureSensors = useCallback(async () => {
     setLoading(true);
     try {
       const url = `http://localhost:8000/realtime/facades/${id}`;
@@ -121,7 +121,8 @@ export default function PanelDetail({
       const tempSensors: TemperatureSensor[] = [];
       
       Object.entries(sensorData).forEach(([sensorName, sensorInfo]: [string, any]) => {
-        if (sensorName.startsWith("Temperature_M")) {
+        // Buscar sensores T_M (formato: T_M1_1, T_M2_3, etc.)
+        if (sensorName.startsWith("T_M")) {
           tempSensors.push({
             sensor_id: sensorName,
             value: sensorInfo.value,
@@ -161,24 +162,22 @@ export default function PanelDetail({
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, temperature]);
 
-  // Efecto para cargar datos al montar el componente
+  // Efecto para cargar datos al montar el componente y cuando cambie el ID
   useEffect(() => {
     fetchSensorsList();
     fetchTemperatureSensors();
     fetchOverviewData();
-  }, [id]);
 
-  // Efecto para auto-refresh de temperaturas cada 5 segundos
-  useEffect(() => {
+    // Efecto para auto-refresh de temperaturas cada 5 segundos
     const interval = setInterval(() => {
       fetchTemperatureSensors();
       fetchOverviewData(); // También actualizar datos ambientales
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [id]);
+  }, [id, fetchSensorsList, fetchTemperatureSensors, fetchOverviewData]);
 
   // Efecto para debug - observar cambios en averageTemperature
   useEffect(() => {

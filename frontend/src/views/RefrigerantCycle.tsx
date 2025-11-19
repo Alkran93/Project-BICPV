@@ -153,58 +153,82 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
     setError(null);
 
     try {
-      const params = new URLSearchParams();
-      if (startDate) params.append("start", startDate);
-      if (endDate) params.append("end", endDate);
-
-      const queryString = params.toString();
-      const url = `http://localhost:8000/temperatures/refrigerant-cycle/${facadeId}${queryString ? `?${queryString}` : ''}`;
-      console.log(`❄️ [${new Date().toLocaleTimeString()}] Fetching refrigerant cycle from: ${url}`);
+      // Usar datos en tiempo real para obtener todas las temperaturas del ciclo
+      const url = `http://localhost:8000/realtime/facades/${facadeId}`;
+      console.log(`❄️ [${new Date().toLocaleTimeString()}] Fetching realtime data from: ${url}`);
 
       const response = await fetch(url);
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error("No hay datos de refrigeración disponibles. Este endpoint solo aplica a fachadas refrigeradas.");
+          throw new Error("No hay datos de refrigeración disponibles.");
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data: BackendResponse = await response.json();
-      console.log("❄️ Refrigerant Cycle API response:", data);
+      const realtimeData = await response.json();
+      console.log("❄️ Realtime API response:", realtimeData);
 
+      const sensorData = realtimeData.data || {};
       const refrigerationCycle: RefrigerantCycleRecord[] = [];
 
-      for (const cyclePoint of Object.values(data.cycle_points)) {
-        const readings = cyclePoint.readings;
-        
-        if (readings && readings.length > 0) {
-          const temperatures = readings.map(r => r.value).filter(v => v !== null && v !== undefined);
-          
-          if (temperatures.length > 0) {
-            const avg = temperatures.reduce((sum, t) => sum + t, 0) / temperatures.length;
-            const min = Math.min(...temperatures);
-            const max = Math.max(...temperatures);
-            const timestamps = readings.map(r => r.ts).sort();
+      // Mapear sensores a puntos del ciclo
+      const cyclePointsMapping = [
+        { sensor: 'T_EntCompresor', label: 'Compresor Inlet' },
+        { sensor: 'T_SalCompresor', label: 'Compresor Outlet' },
+        { sensor: 'T_SalCondensador', label: 'Condensador Outlet' },
+        { sensor: 'T_ValvulaExpansion', label: 'Válvula de Expansión' },
+      ];
 
-            refrigerationCycle.push({
-              cycle_point: cyclePoint.label,
-              avg_temperature: avg,
-              min_temperature: min,
-              max_temperature: max,
-              sample_count: readings.length,
-              timestamp_range: timestamps.length > 0 ? {
-                start: timestamps[0],
-                end: timestamps[timestamps.length - 1]
-              } : undefined
-            });
-          }
+      // Procesar cada punto del ciclo
+      for (const mapping of cyclePointsMapping) {
+        const sensorInfo = sensorData[mapping.sensor];
+        if (sensorInfo && sensorInfo.value !== null && sensorInfo.value !== undefined) {
+          refrigerationCycle.push({
+            cycle_point: mapping.label,
+            avg_temperature: sensorInfo.value,
+            min_temperature: sensorInfo.value, // En tiempo real no hay min/max históricos
+            max_temperature: sensorInfo.value,
+            sample_count: 1,
+            timestamp_range: {
+              start: sensorInfo.ts,
+              end: sensorInfo.ts
+            }
+          });
         }
       }
 
+      // Calcular promedio de evaporadores (T_Entrada_M1 a M5 y T_Salida_M1 a M5)
+      const evaporatorTemps: number[] = [];
+      for (let i = 1; i <= 5; i++) {
+        const entradaSensor = sensorData[`T_Entrada_M${i}`];
+        const salidaSensor = sensorData[`T_Salida_M${i}`];
+        
+        if (entradaSensor?.value !== null && entradaSensor?.value !== undefined) {
+          evaporatorTemps.push(entradaSensor.value);
+        }
+        if (salidaSensor?.value !== null && salidaSensor?.value !== undefined) {
+          evaporatorTemps.push(salidaSensor.value);
+        }
+      }
+
+      if (evaporatorTemps.length > 0) {
+        const avgEvap = evaporatorTemps.reduce((sum, t) => sum + t, 0) / evaporatorTemps.length;
+        const minEvap = Math.min(...evaporatorTemps);
+        const maxEvap = Math.max(...evaporatorTemps);
+
+        refrigerationCycle.push({
+          cycle_point: 'Evaporador',
+          avg_temperature: avgEvap,
+          min_temperature: minEvap,
+          max_temperature: maxEvap,
+          sample_count: evaporatorTemps.length,
+        });
+      }
+
       const transformedData: RefrigerantCycleResponse = {
-        facade_id: data.facade_id,
-        facade_type: "refrigerada",
+        facade_id: realtimeData.facade_id,
+        facade_type: realtimeData.facade_type || "refrigerada",
         refrigeration_cycle: refrigerationCycle
       };
 
@@ -234,8 +258,16 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
     fetchRefrigerantCycle();
     fetchPressureData();
 
+    // Auto-refresh cada 10 segundos
+    const interval = setInterval(() => {
+      console.log(`⏰ [RefrigerantCycle] Auto-refresh triggered`);
+      fetchRefrigerantCycle();
+      fetchPressureData();
+    }, 10000);
+
     return () => {
       isMountedRef.current = false;
+      clearInterval(interval);
     };
   }, [facadeId]);
 
@@ -384,19 +416,43 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
 
   const cycleData = responseData?.refrigeration_cycle || [];
 
+  // Ordenar los puntos del ciclo en orden lógico del ciclo de refrigeración
+  const cycleOrder = [
+    "Compresor Inlet",
+    "Compresor Outlet", 
+    "Condensador Outlet",
+    "Válvula de Expansión",
+    "Evaporador"
+  ];
+
+  const sortedCycleData = [...cycleData].sort((a, b) => {
+    const indexA = cycleOrder.indexOf(a.cycle_point);
+    const indexB = cycleOrder.indexOf(b.cycle_point);
+    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+  });
+
+  // Colores específicos para cada punto del ciclo
+  const cyclePointColors: { [key: string]: string } = {
+    "Compresor Inlet": "rgba(76, 175, 80, 0.8)",      // Verde - temperatura baja
+    "Compresor Outlet": "rgba(230, 57, 70, 0.8)",     // Rojo - temperatura alta
+    "Condensador Outlet": "rgba(255, 152, 0, 0.8)",   // Naranja - temperatura media-alta
+    "Válvula de Expansión": "rgba(33, 150, 243, 0.8)", // Azul - temperatura media
+    "Evaporador": "rgba(156, 39, 176, 0.8)"           // Morado - temperatura baja
+  };
+
   const barChartData = {
-    labels: cycleData.map((record) => record.cycle_point),
+    labels: sortedCycleData.map((record) => record.cycle_point),
     datasets: [
       {
         label: "Temperatura Promedio (°C)",
-        data: cycleData.map((record) => record.avg_temperature),
-        backgroundColor: cycleData.map((record) => {
-          if (record.avg_temperature > 60) return "rgba(230, 57, 70, 0.8)";
-          if (record.avg_temperature > 30) return "rgba(255, 152, 0, 0.8)";
-          if (record.avg_temperature > 0) return "rgba(33, 150, 243, 0.8)";
-          return "rgba(76, 175, 80, 0.8)";
+        data: sortedCycleData.map((record) => record.avg_temperature),
+        backgroundColor: sortedCycleData.map((record) => 
+          cyclePointColors[record.cycle_point] || "rgba(158, 158, 158, 0.8)"
+        ),
+        borderColor: sortedCycleData.map((record) => {
+          const baseColor = cyclePointColors[record.cycle_point] || "rgba(158, 158, 158, 0.8)";
+          return baseColor.replace('0.8)', '1)');
         }),
-        borderColor: "#214B4E",
         borderWidth: 2,
         borderRadius: 8,
       },
@@ -405,8 +461,9 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
 
   const barChartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: { display: true, position: "top" as const },
+      legend: { display: false }, // Ocultar leyenda ya que los colores indican cada punto
       title: {
         display: true,
         text: "Temperaturas del Ciclo de Refrigeración",
@@ -414,14 +471,22 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
         padding: { bottom: 20 },
       },
       tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: 12,
+        titleFont: { size: 14, weight: 'bold' as const },
+        bodyFont: { size: 13 },
         callbacks: {
+          title: function(context: any) {
+            return sortedCycleData[context[0].dataIndex].cycle_point;
+          },
           label: function (context: any) {
-            const record = cycleData[context.dataIndex];
+            const record = sortedCycleData[context.dataIndex];
             return [
               `Promedio: ${record.avg_temperature.toFixed(2)}°C`,
-              `Mín: ${record.min_temperature.toFixed(2)}°C`,
-              `Máx: ${record.max_temperature.toFixed(2)}°C`,
-              `Muestras: ${record.sample_count}`,
+              `Mínima: ${record.min_temperature.toFixed(2)}°C`,
+              `Máxima: ${record.max_temperature.toFixed(2)}°C`,
+              `Variación: ±${(record.max_temperature - record.min_temperature).toFixed(2)}°C`,
+              `Datos: ${record.sample_count} muestras`
             ];
           },
         },
@@ -435,6 +500,9 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
           text: "Temperatura (°C)",
           font: { size: 14, weight: "bold" as const },
         },
+        grid: {
+          color: "rgba(0, 0, 0, 0.05)",
+        }
       },
       x: {
         title: {
@@ -442,53 +510,100 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
           text: "Punto del Ciclo",
           font: { size: 14, weight: "bold" as const },
         },
+        ticks: {
+          font: { size: 12 },
+          maxRotation: 45,
+          minRotation: 45
+        },
+        grid: {
+          display: false,
+        }
       },
     },
   };
 
   const lineChartData = {
-    labels: cycleData.map((record) => record.cycle_point),
+    labels: sortedCycleData.map((record) => record.cycle_point),
     datasets: [
       {
         label: "Temperatura Máxima",
-        data: cycleData.map((record) => record.max_temperature),
+        data: sortedCycleData.map((record) => record.max_temperature),
         borderColor: "#e63946",
         backgroundColor: "rgba(230, 57, 70, 0.1)",
-        tension: 0.4,
+        tension: 0.3,
         fill: false,
-        pointRadius: 5,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        pointBackgroundColor: "#e63946",
+        pointBorderColor: "#fff",
+        pointBorderWidth: 2,
       },
       {
         label: "Temperatura Promedio",
-        data: cycleData.map((record) => record.avg_temperature),
+        data: sortedCycleData.map((record) => record.avg_temperature),
         borderColor: "#2196f3",
         backgroundColor: "rgba(33, 150, 243, 0.2)",
-        tension: 0.4,
+        tension: 0.3,
         fill: true,
-        pointRadius: 6,
+        pointRadius: 7,
+        pointHoverRadius: 9,
         pointBackgroundColor: "#2196f3",
+        pointBorderColor: "#fff",
+        pointBorderWidth: 2,
+        borderWidth: 3,
       },
       {
         label: "Temperatura Mínima",
-        data: cycleData.map((record) => record.min_temperature),
+        data: sortedCycleData.map((record) => record.min_temperature),
         borderColor: "#4caf50",
         backgroundColor: "rgba(76, 175, 80, 0.1)",
-        tension: 0.4,
+        tension: 0.3,
         fill: false,
-        pointRadius: 5,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        pointBackgroundColor: "#4caf50",
+        pointBorderColor: "#fff",
+        pointBorderWidth: 2,
       },
     ],
   };
 
   const lineChartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: { display: true, position: "top" as const },
+      legend: { 
+        display: true, 
+        position: "top" as const,
+        labels: {
+          usePointStyle: true,
+          padding: 15,
+          font: { size: 13 }
+        }
+      },
       title: {
         display: true,
         text: "Rango de Temperaturas por Punto del Ciclo",
         font: { size: 18, weight: "bold" as const },
         padding: { bottom: 20 },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: 12,
+        titleFont: { size: 14, weight: 'bold' as const },
+        bodyFont: { size: 13 },
+        callbacks: {
+          title: function(context: any) {
+            return sortedCycleData[context[0].dataIndex].cycle_point;
+          },
+          afterTitle: function(context: any) {
+            const record = sortedCycleData[context[0].dataIndex];
+            return `Rango: ${(record.max_temperature - record.min_temperature).toFixed(2)}°C`;
+          },
+          label: function (context: any) {
+            return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}°C`;
+          },
+        },
       },
     },
     scales: {
@@ -499,6 +614,9 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
           text: "Temperatura (°C)",
           font: { size: 14, weight: "bold" as const },
         },
+        grid: {
+          color: "rgba(0, 0, 0, 0.05)",
+        }
       },
       x: {
         title: {
@@ -506,17 +624,24 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
           text: "Punto del Ciclo",
           font: { size: 14, weight: "bold" as const },
         },
+        ticks: {
+          font: { size: 12 },
+          maxRotation: 45,
+          minRotation: 45
+        },
+        grid: {
+          display: false,
+        }
       },
     },
   };
 
-  const stats = cycleData.length > 0 ? {
-    avgOverall: cycleData.reduce((sum, r) => sum + r.avg_temperature, 0) / cycleData.length,
-    maxOverall: Math.max(...cycleData.map(r => r.max_temperature)),
-    minOverall: Math.min(...cycleData.map(r => r.min_temperature)),
-    totalSamples: cycleData.reduce((sum, r) => sum + r.sample_count, 0),
-    hottestPoint: cycleData.reduce((max, r) => r.avg_temperature > max.avg_temperature ? r : max),
-    coldestPoint: cycleData.reduce((min, r) => r.avg_temperature < min.avg_temperature ? r : min),
+  const stats = sortedCycleData.length > 0 ? {
+    avgOverall: sortedCycleData.reduce((sum, r) => sum + r.avg_temperature, 0) / sortedCycleData.length,
+    maxOverall: Math.max(...sortedCycleData.map(r => r.max_temperature)),
+    minOverall: Math.min(...sortedCycleData.map(r => r.min_temperature)),
+    hottestPoint: sortedCycleData.reduce((max, r) => r.avg_temperature > max.avg_temperature ? r : max),
+    coldestPoint: sortedCycleData.reduce((min, r) => r.avg_temperature < min.avg_temperature ? r : min),
   } : null;
 
   return (
@@ -764,10 +889,13 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
               }}
             >
               <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
-                TOTAL MUESTRAS
+                DIFERENCIA TÉRMICA
               </h3>
-              <p style={{ margin: 0, fontSize: "2rem", fontWeight: "bold", color: "#6c757d" }}>
-                {stats.totalSamples.toLocaleString()}
+              <p style={{ margin: 0, fontSize: "2rem", fontWeight: "bold", color: "#ff9800" }}>
+                {(stats.maxOverall - stats.minOverall).toFixed(2)}°C
+              </p>
+              <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.85rem", color: "#6c757d" }}>
+                Entre el punto más caliente y más frío
               </p>
             </div>
           </div>
@@ -952,7 +1080,9 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
                   border: "1px solid #e9ecef",
                 }}
               >
-                <Bar data={barChartData} options={barChartOptions} height={300} />
+                <div style={{ height: "400px" }}>
+                  <Bar data={barChartData} options={barChartOptions} />
+                </div>
               </div>
 
               <div
@@ -964,7 +1094,9 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
                   border: "1px solid #e9ecef",
                 }}
               >
-                <Line data={lineChartData} options={lineChartOptions} height={300} />
+                <div style={{ height: "400px" }}>
+                  <Line data={lineChartData} options={lineChartOptions} />
+                </div>
               </div>
             </div>
 
@@ -988,37 +1120,50 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
                     <tr style={{ backgroundColor: "#f8f9fa", borderBottom: "2px solid #dee2e6" }}>
                       <th style={{ padding: "12px", textAlign: "left", fontWeight: "600" }}>Punto del Ciclo</th>
                       <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Temp. Promedio</th>
-                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Temp. Mínima</th>
-                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Temp. Máxima</th>
-                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Muestras</th>
+                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Mínima</th>
+                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Máxima</th>
+                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Variación</th>
+                      <th style={{ padding: "12px", textAlign: "center", fontWeight: "600" }}>Datos</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {cycleData.map((record, index) => (
-                      <tr
-                        key={`${record.cycle_point}-${index}`}
-                        style={{
-                          backgroundColor: index % 2 === 0 ? "#fff" : "#f8f9fa",
-                          borderBottom: "1px solid #dee2e6",
-                        }}
-                      >
-                        <td style={{ padding: "12px", fontWeight: "600", color: "#214B4E" }}>
-                          {record.cycle_point}
-                        </td>
-                        <td style={{ padding: "12px", textAlign: "center", color: "#2196f3", fontWeight: "600" }}>
-                          {record.avg_temperature.toFixed(2)}°C
-                        </td>
-                        <td style={{ padding: "12px", textAlign: "center", color: "#4caf50" }}>
-                          {record.min_temperature.toFixed(2)}°C
-                        </td>
-                        <td style={{ padding: "12px", textAlign: "center", color: "#e63946" }}>
-                          {record.max_temperature.toFixed(2)}°C
-                        </td>
-                        <td style={{ padding: "12px", textAlign: "center" }}>
-                          {record.sample_count.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
+                    {sortedCycleData.map((record, index) => {
+                      const variation = record.max_temperature - record.min_temperature;
+                      
+                      return (
+                        <tr
+                          key={`${record.cycle_point}-${index}`}
+                          style={{
+                            backgroundColor: index % 2 === 0 ? "#fff" : "#f8f9fa",
+                            borderBottom: "1px solid #dee2e6",
+                          }}
+                        >
+                          <td style={{ padding: "12px", fontWeight: "600", color: "#214B4E" }}>
+                            {record.cycle_point}
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "center", color: "#2196f3", fontWeight: "600", fontSize: "1.1rem" }}>
+                            {record.avg_temperature.toFixed(2)}°C
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "center", color: "#4caf50" }}>
+                            {record.min_temperature.toFixed(2)}°C
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "center", color: "#e63946" }}>
+                            {record.max_temperature.toFixed(2)}°C
+                          </td>
+                          <td style={{ 
+                            padding: "12px", 
+                            textAlign: "center", 
+                            color: variation > 1 ? "#ff9800" : "#6c757d",
+                            fontWeight: variation > 1 ? "600" : "normal"
+                          }}>
+                            ±{variation.toFixed(2)}°C
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "center", color: "#6c757d", fontSize: "0.9rem" }}>
+                            {record.sample_count} muestras
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

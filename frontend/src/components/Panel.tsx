@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 type PanelProps = {
   title: string;
@@ -32,8 +32,8 @@ export default function Panel({
   const [loading, setLoading] = useState(false);
 
   // Función para obtener datos de temperatura desde la API
-  const fetchTemperatureSensors = async () => {
-    if (viewMode !== "Temperatura" || !id) return;
+  const fetchTemperatureSensors = useCallback(async () => {
+    if (!id) return;
 
     setLoading(true);
     try {
@@ -56,7 +56,8 @@ export default function Panel({
       const tempSensors: TemperatureSensor[] = [];
       
       Object.entries(sensorData).forEach(([sensorName, sensorInfo]: [string, any]) => {
-        if (sensorName.startsWith("Temperature_M")) {
+        // Buscar sensores T_M (formato: T_M1_1, T_M2_3, etc.)
+        if (sensorName.startsWith("T_M")) {
           tempSensors.push({
             sensor_id: sensorName,
             value: sensorInfo.value,
@@ -74,25 +75,25 @@ export default function Panel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, title]);
 
   // Efecto para cargar datos cuando cambia el modo de vista o el ID
   useEffect(() => {
+    console.log(`🔄 Panel (${title}) - useEffect triggered, id: ${id}`);
     fetchTemperatureSensors();
-  }, [viewMode, id]);
 
-  // Efecto para auto-refresh cuando está en modo Temperatura
-  useEffect(() => {
-    if (viewMode !== "Temperatura") return;
-
-    // Intervalo de actualización cada 5 segundos
+    // Auto-refresh cada 5 segundos
     const interval = setInterval(() => {
+      console.log(`⏰ Panel (${title}) - Auto-refresh triggered`);
       fetchTemperatureSensors();
     }, 5000);
 
     // Limpiar intervalo cuando el componente se desmonta o cambia el modo
-    return () => clearInterval(interval);
-  }, [viewMode, id]);
+    return () => {
+      console.log(`🧹 Panel (${title}) - Cleaning up interval`);
+      clearInterval(interval);
+    };
+  }, [fetchTemperatureSensors]);
 
   // Función para obtener el valor de temperatura para una posición específica
   const getTemperatureForPosition = (index: number) => {

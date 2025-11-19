@@ -104,8 +104,16 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
   useEffect(() => {
     isMountedRef.current = true;
     fetchWaterTemps();
+
+    // Auto-refresh cada 10 segundos
+    const interval = setInterval(() => {
+      console.log(`⏰ [WaterTemperatures] Auto-refresh triggered`);
+      fetchWaterTemps();
+    }, 10000);
+
     return () => {
       isMountedRef.current = false;
+      clearInterval(interval);
     };
   }, [fetchWaterTemps]);
 
@@ -386,7 +394,9 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}
             >
-              <Line data={chartData} options={chartOptions} height={400} />
+              <div style={{ height: "350px" }}>
+                <Line data={chartData} options={{ ...chartOptions, maintainAspectRatio: false }} />
+              </div>
               {lastUpdate && (
                 <p style={{ marginTop: "1rem", color: "#6c757d", fontSize: "14px", textAlign: "center" }}>
                   Última actualización: {lastUpdate}

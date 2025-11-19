@@ -34,6 +34,7 @@ export default function TemperatureComparison() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const isMountedRef = useRef(true);
+  const dataHistoryRef = useRef<{ ref: TempData[], noRef: TempData[] }>({ ref: [], noRef: [] });
 
   const fetchTemperatureComparison = useCallback(async () => {
     if (!isMountedRef.current) return;
@@ -41,7 +42,7 @@ export default function TemperatureComparison() {
     setError(null);
 
     try {
-      const facadesUrl = `http://localhost:8000/facades`;
+      const facadesUrl = `http://localhost:8000/facades/`;
       console.log(`🔍 Fetching facades list from: ${facadesUrl}`);
 
       const facadesResponse = await fetch(facadesUrl);
@@ -54,54 +55,92 @@ export default function TemperatureComparison() {
 
       const facades = facadesJson.facades || [];
       
-      const refrigerated = facades.find((f: any) => f.facade_type === "refrigerada");
-      const nonRefrigerated = facades.find((f: any) => f.facade_type === "no_refrigerada");
-
-      if (!refrigerated || !nonRefrigerated) {
-        throw new Error("No se encontraron ambas fachadas (refrigerada y no refrigerada)");
+      if (facades.length < 2) {
+        throw new Error("No se encontraron suficientes fachadas disponibles");
       }
 
-      console.log(`🔎 Fachada refrigerada: ${refrigerated.facade_id}, No refrigerada: ${nonRefrigerated.facade_id}`);
+      // Identificar las fachadas por tipo
+      const refrigeradaFacade = facades.find((f: any) => f.facade_type === "refrigerada");
+      const noRefrigeradaFacade = facades.find((f: any) => f.facade_type === "no_refrigerada");
+
+      if (!refrigeradaFacade || !noRefrigeradaFacade) {
+        throw new Error("No se encontraron ambos tipos de fachadas");
+      }
+
+      console.log(`🔎 Fachada refrigerada ID: ${refrigeradaFacade.facade_id}`);
+      console.log(`🔎 Fachada no refrigerada ID: ${noRefrigeradaFacade.facade_id}`);
+
+      // Obtener datos en tiempo real de ambas fachadas (sin facade_type en query)
+      const refUrl = `http://localhost:8000/realtime/facades/${refrigeradaFacade.facade_id}`;
+      const nonRefUrl = `http://localhost:8000/realtime/facades/${noRefrigeradaFacade.facade_id}`;
+      
+      console.log(`📊 Fetching refrigerated data from: ${refUrl}`);
+      console.log(`📊 Fetching non-refrigerated data from: ${nonRefUrl}`);
 
       const [refResponse, nonRefResponse] = await Promise.all([
-        fetch(`http://localhost:8000/realtime/facades/${refrigerated.facade_id}`),
-        fetch(`http://localhost:8000/realtime/facades/${nonRefrigerated.facade_id}`)
+        fetch(refUrl),
+        fetch(nonRefUrl)
       ]);
-
+      
       if (!refResponse.ok || !nonRefResponse.ok) {
-        throw new Error("Error fetching temperature data for comparison");
+        throw new Error("Error fetching temperature data from one or both facades");
       }
 
       const refData = await refResponse.json();
       const nonRefData = await nonRefResponse.json();
-
+      
       console.log("Refrigerated data:", refData);
       console.log("Non-refrigerated data:", nonRefData);
 
-      const extractTemperatures = (facadeData: any): TempData[] => {
-        const data = facadeData.data || {};
-        const tempSensors = Object.entries(data).filter(([key]) => 
-          key.startsWith("Temperature_M") || key.startsWith("Temperatura_")
-        );
-
-        if (tempSensors.length === 0) return [];
-
-        const avgTemp = tempSensors.reduce((sum, [, sensor]: [string, any]) => 
-          sum + (sensor.value || 0), 0
-        ) / tempSensors.length;
-
-        return [{
-          timestamp: new Date().toISOString(),
-          temperature: avgTemp
-        }];
+      // Extraer sensores de temperatura y calcular promedio manualmente
+      const calculateAverageTemp = (data: any) => {
+        const sensorData = data.data || {};
+        const tempSensors: number[] = [];
+        
+        Object.entries(sensorData).forEach(([sensorName, sensorInfo]: [string, any]) => {
+          // Buscar sensores T_M (formato: T_M1_1, T_M2_3, etc.)
+          if (sensorName.startsWith("T_M") && sensorInfo?.value !== null && sensorInfo?.value !== undefined) {
+            tempSensors.push(sensorInfo.value);
+          }
+        });
+        
+        console.log(`Sensores encontrados: ${tempSensors.length}, valores:`, tempSensors);
+        
+        if (tempSensors.length === 0) return null;
+        const sum = tempSensors.reduce((acc, val) => acc + val, 0);
+        return sum / tempSensors.length;
       };
 
-      const refTemps = extractTemperatures(refData);
-      const nonRefTemps = extractTemperatures(nonRefData);
+      const refAvg = calculateAverageTemp(refData);
+      const nonRefAvg = calculateAverageTemp(nonRefData);
+
+      if (refAvg === null || nonRefAvg === null) {
+        throw new Error("No se encontraron sensores de temperatura válidos en una o ambas fachadas");
+      }
+
+      // Crear datos para acumular en el historial
+      const now = new Date().toISOString();
+      
+      const newRefPoint: TempData = {
+        timestamp: now,
+        temperature: refAvg
+      };
+
+      const newNonRefPoint: TempData = {
+        timestamp: now,
+        temperature: nonRefAvg
+      };
+
+      // Acumular en el historial (máximo 30 puntos)
+      dataHistoryRef.current.ref = [...dataHistoryRef.current.ref, newRefPoint].slice(-30);
+      dataHistoryRef.current.noRef = [...dataHistoryRef.current.noRef, newNonRefPoint].slice(-30);
+
+      console.log(`✅ Refrigerated avg: ${refAvg.toFixed(2)}°C, Non-refrigerated avg: ${nonRefAvg.toFixed(2)}°C`);
+      console.log(`📊 History size: Ref=${dataHistoryRef.current.ref.length}, NoRef=${dataHistoryRef.current.noRef.length}`);
 
       if (isMountedRef.current) {
-        setRefrigeratedData(refTemps);
-        setNonRefrigeratedData(nonRefTemps);
+        setRefrigeratedData([...dataHistoryRef.current.ref]);
+        setNonRefrigeratedData([...dataHistoryRef.current.noRef]);
         setLastUpdate(new Date().toLocaleString());
       }
     } catch (err) {
@@ -126,21 +165,30 @@ export default function TemperatureComparison() {
 
   const hasData = refrigeratedData.length > 0 && nonRefrigeratedData.length > 0;
   
+  // Crear datos para gráfica de líneas en función del tiempo
   const chartData = {
-    labels: hasData ? ["Temperatura Promedio"] : [],
+    labels: refrigeratedData.map(d => new Date(d.timestamp).toLocaleTimeString()),
     datasets: [
       {
-        label: "Fachada Refrigerada (°C)",
-        data: refrigeratedData.map((d) => d.temperature),
+        label: "Fachada Refrigerada",
+        data: refrigeratedData.map(d => d.temperature),
         borderColor: "rgb(54, 162, 235)",
-        backgroundColor: "rgba(54, 162, 235, 0.5)",
+        backgroundColor: "rgba(54, 162, 235, 0.1)",
+        tension: 0.3,
+        fill: true,
+        pointRadius: 4,
+        pointHoverRadius: 6,
         borderWidth: 2,
       },
       {
-        label: "Fachada No Refrigerada (°C)",
-        data: nonRefrigeratedData.map((d) => d.temperature),
+        label: "Fachada No Refrigerada",
+        data: nonRefrigeratedData.map(d => d.temperature),
         borderColor: "rgb(255, 99, 132)",
-        backgroundColor: "rgba(255, 99, 132, 0.5)",
+        backgroundColor: "rgba(255, 99, 132, 0.1)",
+        tension: 0.3,
+        fill: true,
+        pointRadius: 4,
+        pointHoverRadius: 6,
         borderWidth: 2,
       },
     ],
@@ -158,10 +206,12 @@ export default function TemperatureComparison() {
       },
       title: {
         display: true,
-        text: "Comparativa de Temperaturas – Fachada Refrigerada vs No Refrigerada",
+        text: "Evolución Temporal: Refrigerada vs No Refrigerada",
         font: { size: 18, weight: "bold" as const },
       },
       tooltip: {
+        mode: 'index' as const,
+        intersect: false,
         callbacks: {
           label: function(context: any) {
             return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}°C`;
@@ -169,12 +219,17 @@ export default function TemperatureComparison() {
         }
       }
     },
+    interaction: {
+      mode: 'nearest' as const,
+      axis: 'x' as const,
+      intersect: false,
+    },
     scales: {
       y: {
         beginAtZero: false,
         title: {
           display: true,
-          text: "Temperatura Promedio (°C)",
+          text: "Temperatura (°C)",
           font: { size: 14 }
         },
         ticks: {
@@ -186,15 +241,20 @@ export default function TemperatureComparison() {
       x: {
         title: {
           display: true,
-          text: "Tipo de Fachada",
+          text: "Tiempo",
           font: { size: 14 }
         },
+        ticks: {
+          maxRotation: 45,
+          minRotation: 45
+        }
       },
     },
   };
 
   const tempDifference = hasData 
-    ? nonRefrigeratedData[0].temperature - refrigeratedData[0].temperature 
+    ? (nonRefrigeratedData[nonRefrigeratedData.length - 1]?.temperature || 0) - 
+      (refrigeratedData[refrigeratedData.length - 1]?.temperature || 0)
     : 0;
 
   return (
@@ -341,13 +401,13 @@ export default function TemperatureComparison() {
                 padding: "2rem",
                 borderRadius: "12px",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                height: "500px",
+                height: "350px",
               }}
             >
               <Line data={chartData} options={chartOptions} />
               {lastUpdate && (
                 <p style={{ marginTop: "1rem", color: "#6c757d", fontSize: "14px", textAlign: "center" }}>
-                  Última actualización: {lastUpdate}
+                  Última actualización: {lastUpdate} | Puntos acumulados: {refrigeratedData.length}
                 </p>
               )}
             </div>
