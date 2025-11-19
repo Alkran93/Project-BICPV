@@ -49,7 +49,6 @@ This system monitors and analyzes temperature, environmental conditions, and per
 > Real-time monitoring and analysis system for photovoltaic solar facades with active cooling
 ---
 
-## Table of Contents
 ### 📖 Documentation
 
 ### What's Included in GKE Deployment
