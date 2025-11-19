@@ -24,11 +24,6 @@ ChartJS.register(
   Filler
 );
 
-interface TempData {
-  timestamp: string;
-  temperature: number;
-}
-
 interface HistoricalDataPoint {
   timestamp: string;
   refrigerated: number;

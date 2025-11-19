@@ -56,8 +56,8 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const isMountedRef = useRef(true);
 
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  const [startDate] = useState<string>("");
+  const [endDate] = useState<string>("");
   const [timeRange, setTimeRange] = useState<string>("1h"); // Cambiado a 1h para datos recientes
 
   const MAX_DATA_POINTS = 10; // Solo mantener 10 puntos más recientes

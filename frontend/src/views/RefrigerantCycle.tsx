@@ -191,7 +191,7 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
           console.log(`📊 Last 5 readings:`, last5Readings);
 
           // Crear un punto del ciclo por cada lectura individual
-          last5Readings.forEach((reading, index) => {
+          last5Readings.forEach((reading) => {
             const readingDate = new Date(reading.ts);
             const timeLabel = `${readingDate.getHours()}:${readingDate.getMinutes().toString().padStart(2, '0')}:${readingDate.getSeconds().toString().padStart(2, '0')}`;
             
