@@ -159,6 +159,7 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
 
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false, // ← AGREGAR ESTO para control manual de altura
     plugins: {
       legend: { position: "top" as const },
       title: {
@@ -377,16 +378,18 @@ export default function WaterTemperatures({ facadeId = 1 }: { facadeId?: number 
               </div>
             )}
 
-            {/* Gráfico */}
+            {/* Gráfico - MODIFICADO CON ALTURA DE 700px */}
             <div
               style={{
                 backgroundColor: "white",
                 padding: "2rem",
                 borderRadius: "12px",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                height: "700px", // ← ALTURA AJUSTADA A 700px
+                position: "relative"
               }}
             >
-              <Line data={chartData} options={chartOptions} height={400} />
+              <Line data={chartData} options={chartOptions} />
               {lastUpdate && (
                 <p style={{ marginTop: "1rem", color: "#6c757d", fontSize: "14px", textAlign: "center" }}>
                   Última actualización: {lastUpdate}

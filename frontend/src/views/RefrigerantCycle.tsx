@@ -171,34 +171,42 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
       }
 
       const data: BackendResponse = await response.json();
-      console.log("❄️ Refrigerant Cycle API response:", data);
+      console.log("❄️ Refrigerant Cycle API RAW response:", data);
 
       const refrigerationCycle: RefrigerantCycleRecord[] = [];
 
-      for (const cyclePoint of Object.values(data.cycle_points)) {
-        const readings = cyclePoint.readings;
+      // Procesar cada sensor
+      for (const [sensorName, cyclePoint] of Object.entries(data.cycle_points)) {
+        console.log(`🔍 Processing sensor: ${sensorName}`, cyclePoint);
         
-        if (readings && readings.length > 0) {
-          const temperatures = readings.map(r => r.value).filter(v => v !== null && v !== undefined);
+        const readings = cyclePoint.readings || [];
+        
+        if (readings.length > 0) {
+          // TOMAR SOLO LAS ÚLTIMAS 5 LECTURAS
+          const last5Readings = readings
+            .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime()) // Ordenar descendente
+            .slice(0, 5) // Tomar las 5 más recientes
+            .reverse(); // Volver a ordenar ascendente para el gráfico
           
-          if (temperatures.length > 0) {
-            const avg = temperatures.reduce((sum, t) => sum + t, 0) / temperatures.length;
-            const min = Math.min(...temperatures);
-            const max = Math.max(...temperatures);
-            const timestamps = readings.map(r => r.ts).sort();
+          console.log(`📊 Last 5 readings:`, last5Readings);
 
+          // Crear un punto del ciclo por cada lectura individual
+          last5Readings.forEach((reading, index) => {
+            const readingDate = new Date(reading.ts);
+            const timeLabel = `${readingDate.getHours()}:${readingDate.getMinutes().toString().padStart(2, '0')}:${readingDate.getSeconds().toString().padStart(2, '0')}`;
+            
             refrigerationCycle.push({
-              cycle_point: cyclePoint.label,
-              avg_temperature: avg,
-              min_temperature: min,
-              max_temperature: max,
-              sample_count: readings.length,
-              timestamp_range: timestamps.length > 0 ? {
-                start: timestamps[0],
-                end: timestamps[timestamps.length - 1]
-              } : undefined
+              cycle_point: `${cyclePoint.label || sensorName} - ${timeLabel}`,
+              avg_temperature: reading.value, // Usar el valor individual como promedio
+              min_temperature: reading.value, // Mismo valor para min
+              max_temperature: reading.value, // Mismo valor para max
+              sample_count: 1, // Solo una muestra por punto
+              timestamp_range: {
+                start: reading.ts,
+                end: reading.ts
+              }
             });
-          }
+          });
         }
       }
 
@@ -207,6 +215,8 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
         facade_type: "refrigerada",
         refrigeration_cycle: refrigerationCycle
       };
+
+      console.log("✅ Final transformed data:", transformedData);
 
       if (isMountedRef.current) {
         setResponseData(transformedData);
@@ -384,11 +394,12 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
 
   const cycleData = responseData?.refrigeration_cycle || [];
 
+  // Gráfico de barras - PARA LECTURAS INDIVIDUALES
   const barChartData = {
     labels: cycleData.map((record) => record.cycle_point),
     datasets: [
       {
-        label: "Temperatura Promedio (°C)",
+        label: "Temperatura (°C)",
         data: cycleData.map((record) => record.avg_temperature),
         backgroundColor: cycleData.map((record) => {
           if (record.avg_temperature > 60) return "rgba(230, 57, 70, 0.8)";
@@ -399,29 +410,56 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
         borderColor: "#214B4E",
         borderWidth: 2,
         borderRadius: 8,
+        borderSkipped: false,
       },
     ],
   };
 
   const barChartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: { display: true, position: "top" as const },
+      legend: { 
+        display: true, 
+        position: "top" as const,
+        labels: { 
+          usePointStyle: true, 
+          padding: 20,
+          font: {
+            size: 12,
+            weight: "bold" as const
+          }
+        }
+      },
       title: {
         display: true,
-        text: "Temperaturas del Ciclo de Refrigeración",
-        font: { size: 18, weight: "bold" as const },
-        padding: { bottom: 20 },
+        text: "Últimas 5 Lecturas - Compressor Inlet",
+        font: { 
+          size: 16, 
+          weight: "bold" as const
+        },
+        padding: {
+          bottom: 30
+        },
+        color: "#2c3e50"
       },
       tooltip: {
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        titleFont: {
+          size: 14,
+          weight: "bold" as const
+        },
+        bodyFont: {
+          size: 13
+        },
+        padding: 12,
+        cornerRadius: 8,
         callbacks: {
           label: function (context: any) {
             const record = cycleData[context.dataIndex];
             return [
-              `Promedio: ${record.avg_temperature.toFixed(2)}°C`,
-              `Mín: ${record.min_temperature.toFixed(2)}°C`,
-              `Máx: ${record.max_temperature.toFixed(2)}°C`,
-              `Muestras: ${record.sample_count}`,
+              `Hora: ${record.cycle_point.split(' - ')[1]}`,
+              `Temperatura: ${record.avg_temperature.toFixed(2)}°C`,
             ];
           },
         },
@@ -429,85 +467,165 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
     },
     scales: {
       y: {
-        beginAtZero: true,
+        beginAtZero: false,
         title: {
           display: true,
           text: "Temperatura (°C)",
-          font: { size: 14, weight: "bold" as const },
+          font: { 
+            size: 14, 
+            weight: "bold" as const
+          },
+          color: "#495057"
         },
+        grid: { 
+          color: "rgba(0, 0, 0, 0.1)",
+          drawBorder: true
+        },
+        ticks: {
+          font: {
+            size: 12
+          },
+          color: "#6c757d"
+        }
       },
       x: {
         title: {
           display: true,
-          text: "Punto del Ciclo",
-          font: { size: 14, weight: "bold" as const },
+          text: "Hora de Lectura",
+          font: { 
+            size: 14, 
+            weight: "bold" as const
+          },
+          color: "#495057"
         },
+        grid: { 
+          display: false 
+        },
+        ticks: {
+          font: {
+            size: 11,
+          },
+          color: "#6c757d",
+          maxRotation: 45,
+        }
       },
     },
   };
 
+  // Gráfico de líneas - PARA LECTURAS INDIVIDUALES
   const lineChartData = {
     labels: cycleData.map((record) => record.cycle_point),
     datasets: [
       {
-        label: "Temperatura Máxima",
-        data: cycleData.map((record) => record.max_temperature),
-        borderColor: "#e63946",
-        backgroundColor: "rgba(230, 57, 70, 0.1)",
-        tension: 0.4,
-        fill: false,
-        pointRadius: 5,
-      },
-      {
-        label: "Temperatura Promedio",
+        label: "Temperatura (°C)",
         data: cycleData.map((record) => record.avg_temperature),
         borderColor: "#2196f3",
-        backgroundColor: "rgba(33, 150, 243, 0.2)",
-        tension: 0.4,
+        backgroundColor: "rgba(33, 150, 243, 0.1)",
         fill: true,
+        tension: 0.4,
         pointRadius: 6,
         pointBackgroundColor: "#2196f3",
-      },
-      {
-        label: "Temperatura Mínima",
-        data: cycleData.map((record) => record.min_temperature),
-        borderColor: "#4caf50",
-        backgroundColor: "rgba(76, 175, 80, 0.1)",
-        tension: 0.4,
-        fill: false,
-        pointRadius: 5,
+        pointBorderWidth: 3,
+        pointBorderColor: "#ffffff",
+        pointHoverRadius: 8,
+        pointHoverBackgroundColor: "#2196f3",
+        pointHoverBorderColor: "#ffffff",
+        pointHoverBorderWidth: 3,
       },
     ],
   };
 
   const lineChartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: { display: true, position: "top" as const },
+      legend: { 
+        display: true, 
+        position: "top" as const,
+        labels: { 
+          usePointStyle: true, 
+          padding: 20,
+          font: {
+            size: 12,
+            weight: "bold" as const
+          }
+        }
+      },
       title: {
         display: true,
-        text: "Rango de Temperaturas por Punto del Ciclo",
-        font: { size: 18, weight: "bold" as const },
-        padding: { bottom: 20 },
+        text: "Evolución Temporal - Últimas 5 Lecturas",
+        font: { 
+          size: 16, 
+          weight: "bold" as const
+        },
+        padding: {
+          bottom: 30
+        },
+        color: "#2c3e50"
+      },
+      tooltip: {
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        titleFont: {
+          size: 14,
+          weight: "bold" as const
+        },
+        bodyFont: {
+          size: 13
+        },
+        padding: 12,
+        cornerRadius: 8,
       },
     },
     scales: {
       y: {
-        beginAtZero: true,
+        beginAtZero: false,
         title: {
           display: true,
           text: "Temperatura (°C)",
-          font: { size: 14, weight: "bold" as const },
+          font: { 
+            size: 14, 
+            weight: "bold" as const
+          },
+          color: "#495057"
         },
+        grid: { 
+          color: "rgba(0, 0, 0, 0.1)",
+          drawBorder: true
+        },
+        ticks: {
+          font: {
+            size: 12
+          },
+          color: "#6c757d"
+        }
       },
       x: {
         title: {
           display: true,
-          text: "Punto del Ciclo",
-          font: { size: 14, weight: "bold" as const },
+          text: "Hora de Lectura",
+          font: { 
+            size: 14, 
+            weight: "bold" as const
+          },
+          color: "#495057"
         },
+        grid: { 
+          display: false 
+        },
+        ticks: {
+          font: {
+            size: 11,
+          },
+          color: "#6c757d",
+          maxRotation: 45,
+        }
       },
     },
+    interaction: {
+      mode: 'nearest' as const,
+      axis: 'x' as const,
+      intersect: false
+    }
   };
 
   const stats = cycleData.length > 0 ? {
@@ -950,9 +1068,11 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
                   borderRadius: "16px",
                   boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                   border: "1px solid #e9ecef",
+                  height: "400px",
+                  position: "relative",
                 }}
               >
-                <Bar data={barChartData} options={barChartOptions} height={300} />
+                <Bar data={barChartData} options={barChartOptions} key={`bar-${lastUpdate}`} />
               </div>
 
               <div
@@ -962,6 +1082,8 @@ export default function RefrigerantCycle({ facadeId = "1" }: { facadeId?: string
                   borderRadius: "16px",
                   boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
                   border: "1px solid #e9ecef",
+                  height: "400px",
+                  position: "relative",
                 }}
               >
                 <Line data={lineChartData} options={lineChartOptions} height={300} />

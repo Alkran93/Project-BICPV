@@ -89,45 +89,113 @@ export default function ComparisonChart({ onBack }: ComparisonChartProps) {
       console.log(`Facade 1 API response:`, data1);
       console.log(`Facade 2 API response:`, data2);
 
+
+      console.log('🔍 FACADE 1 KEYS:', Object.keys(data1));
+      console.log('🔍 FACADE 2 KEYS:', Object.keys(data2));
+
+      if (data1.comparison) {
+        console.log('🔍 FACADE 1 COMPARISON KEYS:', Object.keys(data1.comparison));
+      }
+      if (data2.comparison) {
+        console.log('🔍 FACADE 2 COMPARISON KEYS:', Object.keys(data2.comparison));
+      }
+
       // CORRECCIÓN: Extraer datos de la estructura correcta
       // Combinar datos de ambas llamadas
-      const noRefrigeradaData = [
-        ...(data1.comparison?.no_refrigerada || []),
-        ...(data2.comparison?.no_refrigerada || [])
-      ];
-      const refrigeradaData = [
-        ...(data1.comparison?.refrigerada || []),
-        ...(data2.comparison?.refrigerada || [])
-      ];
+      let noRefrigeradaData: SensorStats[] = [];
+      let refrigeradaData: SensorStats[] = [];
 
-      // También podrías combinar datos de ambas respuestas si es necesario:
-      // const noRefrigeradaData = [...(data1.comparison?.no_refrigerada || []), ...(data2.comparison?.no_refrigerada || [])];
-      // const refrigeradaData = [...(data1.comparison?.refrigerada || []), ...(data2.comparison?.refrigerada || [])];
+      // Enfoque 1: Estructura con propiedad "comparison"
+      if (data1.comparison && data2.comparison) {
+        console.log('✅ Usando estructura con propiedad "comparison"');
+        noRefrigeradaData = [
+          ...(data1.comparison.no_refrigerada || []),
+          ...(data2.comparison.no_refrigerada || [])
+        ];
+        refrigeradaData = [
+          ...(data1.comparison.refrigerada || []),
+          ...(data2.comparison.refrigerada || [])
+        ];
+      } 
+      // Enfoque 2: Estructura directa
+      else if (data1.no_refrigerada || data1.refrigerada) {
+        console.log('✅ Usando estructura directa (sin propiedad "comparison")');
+        noRefrigeradaData = [
+          ...(data1.no_refrigerada || []),
+          ...(data2.no_refrigerada || [])
+        ];
+        refrigeradaData = [
+          ...(data1.refrigerada || []),
+          ...(data2.refrigerada || [])
+        ];
+      }
+      // Enfoque 3: Los datos vienen directamente como array
+      else if (Array.isArray(data1) && Array.isArray(data2)) {
+        console.log('✅ Usando estructura de array directo');
+        // Asumimos que cada endpoint devuelve datos para una fachada específica
+        // Endpoint 1 = refrigerada, Endpoint 2 = no refrigerada (o viceversa)
+        refrigeradaData = Array.isArray(data1) ? data1 : [];
+        noRefrigeradaData = Array.isArray(data2) ? data2 : [];
+      }
+      // Enfoque 4: Datos vienen en propiedades diferentes
+      else {
+        console.log('🔍 Probando estructura alternativa - todas las propiedades:');
+        console.log('FACADE 1 props:', Object.keys(data1));
+        console.log('FACADE 2 props:', Object.keys(data2));
+        
+        // Buscar cualquier propiedad que contenga arrays de datos
+        const findSensorArrays = (obj: any): SensorStats[] => {
+          const arrays: SensorStats[] = [];
+          Object.keys(obj).forEach(key => {
+            if (Array.isArray(obj[key]) && obj[key].length > 0 && obj[key][0].sensor_name) {
+              arrays.push(...obj[key]);
+            }
+          });
+          return arrays;
+        };
 
+        refrigeradaData = findSensorArrays(data1);
+        noRefrigeradaData = findSensorArrays(data2);
+        
+        console.log(`🔍 Encontrados ${refrigeradaData.length} sensores refrigerada, ${noRefrigeradaData.length} no refrigerada`);
+      }
+
+      // Filtrar solo sensores de temperatura
       const tempRefrigerada = refrigeradaData.filter((s: SensorStats) => 
-        s.sensor_name.startsWith('Temperature_M') || s.sensor_name.startsWith('T_')
+        s.sensor_name && (s.sensor_name.startsWith('Temperature_M') || s.sensor_name.startsWith('T_') || s.sensor_name.includes('Temperature'))
       );
       const tempNoRefrigerada = noRefrigeradaData.filter((s: SensorStats) => 
-        s.sensor_name.startsWith('Temperature_M') || s.sensor_name.startsWith('T_')
+        s.sensor_name && (s.sensor_name.startsWith('Temperature_M') || s.sensor_name.startsWith('T_') || s.sensor_name.includes('Temperature'))
       );
 
       console.log(
-        `Processed data - Refrigerada: ${tempRefrigerada.length} sensors, No Refrigerada: ${tempNoRefrigerada.length} sensors`
+        `📊 Datos procesados - Refrigerada: ${tempRefrigerada.length} sensores, No Refrigerada: ${tempNoRefrigerada.length} sensores`
       );
+
+      if (tempRefrigerada.length > 0) {
+        console.log(`❄️ Sensores refrigerada:`, tempRefrigerada.map(s => s.sensor_name));
+      }
+      if (tempNoRefrigerada.length > 0) {
+        console.log(`🔥 Sensores no refrigerada:`, tempNoRefrigerada.map(s => s.sensor_name));
+      }
 
       if (isMountedRef.current) {
         setRefrigeradaStats(tempRefrigerada);
         setNoRefrigeradaStats(tempNoRefrigerada);
         setLastUpdate(new Date().toLocaleString());
+        
+        // Forzar re-render con nuevo timestamp
+        console.log(`🔄 Estado actualizado a las: ${new Date().toLocaleString()}`);
       }
     } catch (error) {
-      console.error("Error fetching comparison data:", error);
+      console.error("❌ Error fetching comparison data:", error);
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
       }
     }
   }, []);
+
 
   useEffect(() => {
     console.log(`Component mounted - Loading comparison data`);

@@ -1,5 +1,4 @@
-// PowerRadianceChart.tsx
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -29,7 +28,7 @@ ChartJS.register(
 
 interface PowerRadianceDataPoint {
   timestamp: string;
-  power_generated: number; // W (no kW)
+  power_generated: number; // W
   irradiance: number; // W/m²
 }
 
@@ -50,7 +49,8 @@ interface PowerRadianceResponse {
 }
 
 export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: string }) {
-  const [data, setData] = useState<PowerRadianceResponse | null>(null);
+  const [historicalData, setHistoricalData] = useState<PowerRadianceDataPoint[]>([]);
+  const [currentData, setCurrentData] = useState<PowerRadianceResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<string>("");
@@ -58,10 +58,11 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
 
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  const [timeRange, setTimeRange] = useState<string>("24h"); // 24h, 7d, 30d
+  const [timeRange, setTimeRange] = useState<string>("1h"); // Cambiado a 1h para datos recientes
 
+  const MAX_DATA_POINTS = 10; // Solo mantener 10 puntos más recientes
 
-  const fetchPowerRadianceData = async () => {
+  const fetchPowerRadianceData = useCallback(async () => {
     if (!isMountedRef.current) return;
 
     setLoading(true);
@@ -72,7 +73,6 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
       if (startDate) params.append("start", startDate);
       if (endDate) params.append("end", endDate);
       if (timeRange && !startDate && !endDate) {
-        // Si no hay fechas específicas, usar el rango de tiempo
         params.append("range", timeRange);
       }
 
@@ -94,9 +94,22 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
       console.log("⚡ Power/Irradiance API response:", responseData);
 
       if (isMountedRef.current) {
-        // Transformar los datos del nuevo formato
         const transformedData = transformPowerIrradianceData(responseData);
-        setData(transformedData);
+        setCurrentData(transformedData);
+
+        // Agregar solo los puntos más recientes al historial
+        if (transformedData.data.length > 0) {
+          const newDataPoints = transformedData.data.slice(-2); // Tomar solo los últimos 2 puntos de cada actualización
+          
+          setHistoricalData(prev => {
+            const updated = [...prev, ...newDataPoints];
+            // Mantener solo los últimos MAX_DATA_POINTS puntos
+            return updated.length > MAX_DATA_POINTS 
+              ? updated.slice(updated.length - MAX_DATA_POINTS)
+              : updated;
+          });
+        }
+
         setLastUpdate(new Date().toLocaleString());
       }
     } catch (err) {
@@ -105,19 +118,18 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
 
       if (isMountedRef.current) {
         setError(errorMessage);
-        setData(null);
+        setCurrentData(null);
       }
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
       }
     }
-  };
+  }, [facadeId, startDate, endDate, timeRange]);
 
   const transformPowerIrradianceData = (apiData: any): PowerRadianceResponse => {
     console.log("📊 Transformando datos de API:", apiData);
     
-    // Buscar las series por nombre exacto según la documentación
     const irradianceSeries = apiData.series.find((s: any) => s.name === "Irradiance");
     const powerSeries = apiData.series.find((s: any) => s.name === "Generated Power");
     
@@ -130,15 +142,12 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
       powerCount: powerSeries?.data?.length
     });
 
-    // Si tenemos ambas series, combinarlas por timestamp
     if (irradianceSeries && powerSeries) {
-      // Crear un mapa de irradiancia por timestamp para fácil acceso
       const irradianceMap = new Map();
       irradianceSeries.data.forEach((point: any) => {
         irradianceMap.set(point.ts, point.value);
       });
 
-      // Para cada punto de potencia, buscar la irradiancia correspondiente
       powerSeries.data.forEach((point: any) => {
         const irradianceValue = irradianceMap.get(point.ts);
         if (irradianceValue !== undefined) {
@@ -150,7 +159,6 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
         }
       });
 
-      // Si no hay coincidencias, usar el método de índice (fallback)
       if (dataPoints.length === 0) {
         const minLength = Math.min(irradianceSeries.data.length, powerSeries.data.length);
         for (let i = 0; i < minLength; i++) {
@@ -162,7 +170,6 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
         }
       }
     }
-    // Si solo tenemos irradiancia, calcular la potencia
     else if (irradianceSeries && !powerSeries) {
       const panelArea = apiData.calculation?.panel_area_m2 || 10;
       const efficiency = apiData.calculation?.efficiency || 0.15;
@@ -176,7 +183,6 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
         });
       });
     }
-    // Si solo tenemos potencia
     else if (!irradianceSeries && powerSeries) {
       powerSeries.data.forEach((point: any) => {
         dataPoints.push({
@@ -189,7 +195,6 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
 
     console.log("📈 Puntos de datos transformados:", dataPoints.length);
 
-    // Calcular resumen
     const totalPower = dataPoints.reduce((sum, point) => sum + point.power_generated, 0);
     const avgIrradiance = dataPoints.length > 0 ? 
       dataPoints.reduce((sum, point) => sum + point.irradiance, 0) / dataPoints.length : 0;
@@ -216,10 +221,14 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
     isMountedRef.current = true;
     fetchPowerRadianceData();
 
+    // Configurar actualización automática cada 15 segundos
+    const interval = setInterval(fetchPowerRadianceData, 15000);
+
     return () => {
       isMountedRef.current = false;
+      clearInterval(interval);
     };
-  }, [facadeId]);
+  }, [fetchPowerRadianceData]);
 
   useEffect(() => {
     if (isMountedRef.current) {
@@ -227,33 +236,39 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
     }
   }, [startDate, endDate, timeRange]);
 
-  // Preparar datos para el gráfico
+  // Preparar datos para el gráfico - usar solo historicalData
   const chartData = {
-    labels: data?.data.map(point => new Date(point.timestamp).toLocaleTimeString()) || [],
+    labels: historicalData.map(point => new Date(point.timestamp).toLocaleTimeString()),
     datasets: [
       {
-        label: "Potencia Generada (kW)",
-        data: data?.data.map(point => point.power_generated) || [],
+        label: "Potencia Generada (W)",
+        data: historicalData.map(point => point.power_generated),
         borderColor: "#ff6b00",
         backgroundColor: "rgba(255, 107, 0, 0.1)",
         borderWidth: 3,
         tension: 0.4,
         fill: true,
         yAxisID: 'y',
-        pointRadius: 2,
-        pointHoverRadius: 6,
+        pointRadius: 4,
+        pointHoverRadius: 8,
+        pointBackgroundColor: "#ff6b00",
+        pointBorderColor: "#fff",
+        pointBorderWidth: 2,
       },
       {
         label: "Irradiancia (W/m²)",
-        data: data?.data.map(point => point.irradiance) || [],
+        data: historicalData.map(point => point.irradiance),
         borderColor: "#ffd700",
         backgroundColor: "rgba(255, 215, 0, 0.1)",
         borderWidth: 2,
         tension: 0.4,
         fill: true,
         yAxisID: 'y1',
-        pointRadius: 2,
-        pointHoverRadius: 6,
+        pointRadius: 4,
+        pointHoverRadius: 8,
+        pointBackgroundColor: "#ffd700",
+        pointBorderColor: "#fff",
+        pointBorderWidth: 2,
       }
     ],
   };
@@ -275,8 +290,8 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
       },
       title: {
         display: true,
-        text: "Potencia Generada vs Irradiancia en el Tiempo",
-        font: { size: 18, weight: "bold" as const },
+        text: "Potencia e Irradiancia - Monitoreo en Tiempo Real",
+        font: { size: 16, weight: "bold" as const },
         padding: { bottom: 20 },
       },
       tooltip: {
@@ -288,7 +303,7 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
             }
             if (context.parsed.y !== null) {
               if (context.dataset.label.includes('Potencia')) {
-                label += `${context.parsed.y.toFixed(2)} kW`;
+                label += `${context.parsed.y.toFixed(2)} W`;
               } else {
                 label += `${context.parsed.y.toFixed(0)} W/m²`;
               }
@@ -339,10 +354,10 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
   };
 
   const handleExportCSV = () => {
-    if (!data) return;
+    if (historicalData.length === 0) return;
 
-    const headers = ["Timestamp", "Potencia_Generada_kW", "Irradiancia_W_m2"];
-    const csvData = data.data.map(point => [
+    const headers = ["Timestamp", "Potencia_Generada_W", "Irradiancia_W_m2"];
+    const csvData = historicalData.map(point => [
       point.timestamp,
       point.power_generated,
       point.irradiance
@@ -357,10 +372,20 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `potencia-irradiancia-fachada-${facadeId}.csv`;
+    link.download = `potencia-irradiancia-tiempo-real-${facadeId}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  // Calcular estadísticas en tiempo real
+  const realTimeStats = historicalData.length > 0 ? {
+    currentPower: historicalData[historicalData.length - 1]?.power_generated || 0,
+    currentIrradiance: historicalData[historicalData.length - 1]?.irradiance || 0,
+    avgPower: historicalData.reduce((sum, point) => sum + point.power_generated, 0) / historicalData.length,
+    avgIrradiance: historicalData.reduce((sum, point) => sum + point.irradiance, 0) / historicalData.length,
+    maxPower: Math.max(...historicalData.map(p => p.power_generated)),
+    maxIrradiance: Math.max(...historicalData.map(p => p.irradiance)),
+  } : null;
 
   return (
     <div style={{ padding: "2rem", backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
@@ -378,14 +403,17 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
           <div>
             <h1 style={{ margin: "0 0 0.5rem 0", fontSize: "2rem", fontWeight: "bold", color: "#2c3e50", display: "flex", alignItems: "center", gap: "0.75rem" }}>
               <Zap size={32} color="#ff6b00" />
-              Potencia e Irradiancia
+              Potencia e Irradiancia - Tiempo Real
             </h1>
             <p style={{ margin: 0, color: "#6c757d", fontSize: "14px" }}>
-              Fachada {facadeId} - {data?.facade_type || "Cargando..."}
+              Fachada {facadeId} - {currentData?.facade_type || "Cargando..."}
             </p>
             {lastUpdate && (
               <p style={{ margin: "0.25rem 0 0 0", color: "#888", fontSize: "12px" }}>
-                Última actualización: {lastUpdate}
+                Última actualización: {lastUpdate} 
+                <span style={{ marginLeft: "1rem", color: "#28a745", fontWeight: "600" }}>
+                  🔄 Actualización automática cada 15s | Datos: {historicalData.length}/{MAX_DATA_POINTS} puntos
+                </span>
               </p>
             )}
           </div>
@@ -412,7 +440,7 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
               {loading ? "Actualizando..." : "Actualizar"}
             </button>
 
-            {!loading && data && (
+            {historicalData.length > 0 && (
               <button
                 onClick={handleExportCSV}
                 style={{
@@ -436,11 +464,11 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
           </div>
         </div>
 
-        {/* Filtros */}
+        {/* Filtros simplificados para tiempo real */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
+            gridTemplateColumns: "1fr 1fr",
             gap: "1rem",
             padding: "1rem",
             backgroundColor: "#f8f9fa",
@@ -451,7 +479,7 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
           <div>
             <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#495057", marginBottom: "0.5rem" }}>
               <Calendar size={14} style={{ display: "inline", marginRight: "0.25rem" }} />
-              Rango de Tiempo
+              Ventana de Tiempo
             </label>
             <select
               value={timeRange}
@@ -464,46 +492,28 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
                 fontSize: "14px",
               }}
             >
+              <option value="1h">Última hora</option>
+              <option value="3h">Últimas 3 horas</option>
+              <option value="6h">Últimas 6 horas</option>
               <option value="24h">Últimas 24 horas</option>
-              <option value="7d">Últimos 7 días</option>
-              <option value="30d">Últimos 30 días</option>
             </select>
           </div>
 
           <div>
             <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#495057", marginBottom: "0.5rem" }}>
-              Fecha Inicio (opcional)
+              📊 Puntos en Gráfico
             </label>
-            <input
-              type="datetime-local"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #ced4da",
-                borderRadius: "4px",
-                fontSize: "14px",
-              }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#495057", marginBottom: "0.5rem" }}>
-              Fecha Fin (opcional)
-            </label>
-            <input
-              type="datetime-local"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #ced4da",
-                borderRadius: "4px",
-                fontSize: "14px",
-              }}
-            />
+            <div style={{ 
+              padding: "0.5rem", 
+              backgroundColor: "#e9ecef", 
+              borderRadius: "4px", 
+              textAlign: "center",
+              fontSize: "14px",
+              fontWeight: "600",
+              color: "#495057"
+            }}>
+              {historicalData.length} / {MAX_DATA_POINTS} puntos
+            </div>
           </div>
         </div>
       </div>
@@ -524,8 +534,8 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
         </div>
       )}
 
-      {/* Estadísticas */}
-      {data?.summary && (
+      {/* Estadísticas en tiempo real */}
+      {realTimeStats && (
         <div
           style={{
             display: "grid",
@@ -547,11 +557,11 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
               <Zap size={20} color="#ff6b00" />
               <h3 style={{ margin: 0, fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
-                POTENCIA TOTAL
+                POTENCIA ACTUAL
               </h3>
             </div>
             <p style={{ margin: 0, fontSize: "2rem", fontWeight: "bold", color: "#ff6b00" }}>
-              {data.summary.total_power.toFixed(2)} kW
+              {realTimeStats.currentPower.toFixed(2)} W
             </p>
           </div>
 
@@ -568,11 +578,29 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
               <Sun size={20} color="#ffd700" />
               <h3 style={{ margin: 0, fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
-                IRRADIANCIA PROMEDIO
+                IRRADIANCIA ACTUAL
               </h3>
             </div>
             <p style={{ margin: 0, fontSize: "2rem", fontWeight: "bold", color: "#ffd700" }}>
-              {data.summary.avg_irradiance.toFixed(0)} W/m²
+              {realTimeStats.currentIrradiance.toFixed(0)} W/m²
+            </p>
+          </div>
+
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "1.5rem",
+              borderRadius: "12px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #e9ecef",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
+              POTENCIA PROMEDIO
+            </h3>
+            <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold", color: "#28a745" }}>
+              {realTimeStats.avgPower.toFixed(2)} W
             </p>
           </div>
 
@@ -589,33 +617,15 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
             <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
               PICO DE POTENCIA
             </h3>
-            <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold", color: "#28a745" }}>
-              {data.summary.max_power.toFixed(2)} kW
-            </p>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #e9ecef",
-              textAlign: "center",
-            }}
-          >
-            <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "14px", color: "#6c757d", fontWeight: "600" }}>
-              PICO DE IRRADIANCIA
-            </h3>
             <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold", color: "#dc3545" }}>
-              {data.summary.max_irradiance.toFixed(0)} W/m²
+              {realTimeStats.maxPower.toFixed(2)} W
             </p>
           </div>
         </div>
       )}
 
       {/* Gráfico principal */}
-      {!loading && !error && data && (
+      {historicalData.length > 0 && (
         <div
           style={{
             backgroundColor: "white",
@@ -629,8 +639,8 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
         </div>
       )}
 
-      {/* Información adicional */}
-      {data?.summary?.period && (
+      {/* Información del sistema en tiempo real */}
+      {historicalData.length > 0 && (
         <div
           style={{
             backgroundColor: "#e7f3ff",
@@ -640,17 +650,17 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
             marginBottom: "2rem",
           }}
         >
-          <h4 style={{ margin: "0 0 0.5rem 0", color: "#0066cc" }}>📅 Período de Datos</h4>
+          <h4 style={{ margin: "0 0 0.5rem 0", color: "#0066cc" }}>📊 Monitoreo en Tiempo Real</h4>
           <div style={{ fontSize: "0.9rem", color: "#0066cc" }}>
-            <strong>Inicio:</strong> {new Date(data.summary.period.start).toLocaleString()} | 
-            <strong> Fin:</strong> {new Date(data.summary.period.end).toLocaleString()} |
-            <strong> Total de puntos:</strong> {data.data.length}
+            <strong>Actualización:</strong> Cada 15 segundos | 
+            <strong> Puntos mostrados:</strong> {historicalData.length} | 
+            <strong> Último dato:</strong> {historicalData.length > 0 ? new Date(historicalData[historicalData.length - 1].timestamp).toLocaleTimeString() : 'N/A'}
           </div>
         </div>
       )}
 
       {/* Empty state */}
-      {!loading && !error && (!data || data.data.length === 0) && (
+      {!loading && !error && historicalData.length === 0 && (
         <div
           style={{
             padding: "4rem",
@@ -661,9 +671,9 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
           }}
         >
           <Sun size={64} color="#6c757d" style={{ marginBottom: "1rem" }} />
-          <h3 style={{ color: "#6c757d", margin: 0 }}>No hay datos de potencia e irradiancia</h3>
+          <h3 style={{ color: "#6c757d", margin: 0 }}>Esperando datos en tiempo real...</h3>
           <p style={{ color: "#6c757d", margin: "0.5rem 0 0 0" }}>
-            Intenta ajustar los filtros de fecha o verifica la conexión con el sistema.
+            Los datos se cargarán automáticamente cada 15 segundos.
           </p>
         </div>
       )}
@@ -680,7 +690,7 @@ export default function PowerRadianceChart({ facadeId = "1" }: { facadeId?: stri
           }}
         >
           <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚡</div>
-          <h3 style={{ color: "#6c757d", margin: 0 }}>Cargando datos de potencia e irradiancia...</h3>
+          <h3 style={{ color: "#6c757d", margin: 0 }}>Actualizando datos en tiempo real...</h3>
         </div>
       )}
     </div>
