@@ -48,31 +48,11 @@ This system monitors and analyzes temperature, environmental conditions, and per
 [![TimescaleDB](https://img.shields.io/badge/TimescaleDB-FDB515?logo=postgresql)](docker-compose.yml)
 
 > Real-time monitoring and analysis system for photovoltaic solar facades with active cooling
-
-## 🚀 Quick Deploy to GCP
-
-**Deploy in 3 commands** (no domain required):
-
-```bash
-./scripts/deploy-initial.sh         # Press Enter when asked for domain
-./scripts/update-frontend-ip.sh     # Update frontend with backend IP
-./scripts/verify-deployment.sh      # Verify everything works
-```
-
-⏱️ **Time:** ~35-45 minutes | 💰 **Cost:** ~$520-900/month
-
-👉 **[START HERE - Complete Guide](docs/RESUMEN_FINAL.md)**
-
 ---
 
 ## Table of Contents
 
 ### 📖 Documentation
-
-- **[Quick Start Guide](QUICKSTART.md)** - Deploy in 10 minutes without domain
-- **[IP Deployment Guide](docs/IP_DEPLOYMENT_GUIDE.md)** - Detailed guide for IP-based deployment
-- **[Complete GKE Guide](docs/GKE_DEPLOYMENT_GUIDE.md)** - Full production deployment with architecture
-- **[GKE Overview](docs/README_GKE.md)** - Features and cost estimation
 
 ### What's Included in GKE Deployment
 
@@ -483,4 +463,4 @@ docker compose down -v
 
 ---
 
-**Project Status**: Last Delivery    
+**Project Status**: Development    
