@@ -2,7 +2,6 @@
 
 - Overview
 - System Architecture
-- **🚀 [Deploy to Google Cloud (GKE)](#deploy-to-google-cloud)**
 - Prerequisites
 - Quick Start
 - Detailed Setup Instructions
